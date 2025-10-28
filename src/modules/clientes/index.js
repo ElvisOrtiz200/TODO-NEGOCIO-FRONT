@@ -1,0 +1,1 @@
+export {default as RolesPage1} from "../clientes/pages/RolesPage"
