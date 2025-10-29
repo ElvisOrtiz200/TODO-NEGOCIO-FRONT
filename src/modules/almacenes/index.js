@@ -1,0 +1,1 @@
+export {default as AlmacenesPage} from "../almacenes/pages/AlmacenesPage"

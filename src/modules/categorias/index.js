@@ -1,0 +1,1 @@
+export {default as CategoriasPage} from "../categorias/pages/CategoriasPage"

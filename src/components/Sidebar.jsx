@@ -38,6 +38,26 @@ export default function Sidebar() {
       >
         Roles
       </NavLink>
+      <NavLink
+        to="/home/categorias"
+        className={({ isActive }) =>
+          `px-4 py-2 rounded-md hover:bg-[#22312f] ${
+            isActive ? "bg-[#22312f]" : ""
+          }`
+        }
+      >
+        Categorias
+      </NavLink>
+      <NavLink
+        to="/home/almacenes"
+        className={({ isActive }) =>
+          `px-4 py-2 rounded-md hover:bg-[#22312f] ${
+            isActive ? "bg-[#22312f]" : ""
+          }`
+        }
+      >
+        Almacenes
+      </NavLink>
     </aside>
   );
 }

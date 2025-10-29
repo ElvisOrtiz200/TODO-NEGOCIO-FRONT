@@ -6,6 +6,8 @@ import Layout from "./components/Layout";
 import ClientesPage from "./modules/clientes/pages/ClientesPage";
 import ProductoPage from "./modules/productos/pages/ProductoPage";
 import { RolesPage1 } from "./modules/clientes";
+import CategoriasPage from "./modules/categorias/pages/CategoriasPage";
+import AlmacenesPage from "./modules/almacenes/pages/AlmacenesPage";
 
 
 export const router = createBrowserRouter([
@@ -24,7 +26,10 @@ export const router = createBrowserRouter([
       { index: true, element: <Home/> },
       { path : "roles", element : <RolesPage1/>},
       { path : "productos", element : <ProductoPage/>},
-      { path : "dashboard", element : <Dashboard/>}
+      { path : "dashboard", element : <Dashboard/>},
+      { path : "categorias", element : <CategoriasPage/>},
+      { path : "almacenes", element : <AlmacenesPage/>}
+
     ],
   },
 ]);
