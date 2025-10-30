@@ -8,6 +8,8 @@ import ProductoPage from "./modules/productos/pages/ProductoPage";
 import { RolesPage1 } from "./modules/clientes";
 import CategoriasPage from "./modules/categorias/pages/CategoriasPage";
 import AlmacenesPage from "./modules/almacenes/pages/AlmacenesPage";
+import ProveedorPage from "./modules/proveedores/pages/ProveedoresPage";
+import TipoMovimientoPage from "./modules/tipoMovimientos/pages/TipoMovimientosPage";
 
 
 export const router = createBrowserRouter([
@@ -28,8 +30,9 @@ export const router = createBrowserRouter([
       { path : "productos", element : <ProductoPage/>},
       { path : "dashboard", element : <Dashboard/>},
       { path : "categorias", element : <CategoriasPage/>},
-      { path : "almacenes", element : <AlmacenesPage/>}
-
+      { path : "almacenes", element : <AlmacenesPage/>},
+      { path : "proveedores", element : <ProveedorPage/>},
+      { path : "tipoMovimientos", element : <TipoMovimientoPage/>},
     ],
   },
 ]);

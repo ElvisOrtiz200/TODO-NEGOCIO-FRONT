@@ -1,0 +1,1 @@
+export {default as TipoMovimientoPage} from "../tipoMovimientos/pages/TipoMovimientosPage"

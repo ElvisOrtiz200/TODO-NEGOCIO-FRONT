@@ -58,6 +58,26 @@ export default function Sidebar() {
       >
         Almacenes
       </NavLink>
+      <NavLink
+        to="/home/proveedores"
+        className={({ isActive }) =>
+          `px-4 py-2 rounded-md hover:bg-[#22312f] ${
+            isActive ? "bg-[#22312f]" : ""
+          }`
+        }
+      >
+        Proveedores
+      </NavLink>
+      <NavLink
+        to="/home/tipoMovimientos"
+        className={({ isActive }) =>
+          `px-4 py-2 rounded-md hover:bg-[#22312f] ${
+            isActive ? "bg-[#22312f]" : ""
+          }`
+        }
+      >
+        Tipo Movimientos
+      </NavLink>
     </aside>
   );
 }
