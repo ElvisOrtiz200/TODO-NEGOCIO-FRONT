@@ -10,9 +10,11 @@ export const useRoles = () => {
     try {
       setLoading(true);
       const data = await getRoles();
-      setRoles(data);
+      setRoles(data || []);
     } catch (err) {
-      console.error("Error al cargar roles:", err.message);
+      console.error("Error al cargar roles:", err);
+      setRoles([]);
+      alert(`Error al cargar roles: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -20,22 +22,24 @@ export const useRoles = () => {
 
   const addRol = async (rol) => {
     const nuevo = await createRol(rol);
-    setRoles([...roles, nuevo]);
+    await loadRoles(); // Recargar la lista completa
+    return nuevo;
   };
 
   const editRol = async (idRol, rol) => {
     const actualizado = await updateRol(idRol, rol);
-    setRoles(roles.map((r) => (r.idRol === idRol ? actualizado : r)));
+    await loadRoles(); // Recargar la lista completa
+    return actualizado;
   };
 
   const removeRol = async (idRol) => {
     await deleteRol(idRol);
-    setRoles(roles.filter((r) => r.idRol !== idRol));
+    await loadRoles(); // Recargar la lista completa
   };
 
   useEffect(() => {
     loadRoles();
   }, []);
 
-  return { roles, loading, addRol, editRol, removeRol };
+  return { roles, loading, addRol, editRol, removeRol, loadRoles };
 };

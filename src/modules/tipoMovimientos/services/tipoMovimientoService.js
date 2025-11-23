@@ -1,12 +1,12 @@
 import { supabase } from "../../../api/supabaseClient";
 
-const TABLE = "TIPOMOVIMIENTO";
+const TABLE = "TIPOMOVIMIENTOS";
 
 export const getTipoMovimientos = async () => {
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
-    .eq("estadoMovimiento", true)
+    .eq("estadoTipoMovimiento", true)
     .order("idTipoMovimiento", { ascending: true });
   if (error) throw error;
   return data;
