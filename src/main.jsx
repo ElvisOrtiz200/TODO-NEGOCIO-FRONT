@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import AppRouter from './routes/AppRouter.jsx'
 import { OrganizacionProvider } from './context/OrganizacionContext.jsx'
+import { ToastProvider } from './components/ToastContainer.jsx'
 import { supabase } from './api/supabaseClient'
 
 // Procesar el hash de OAuth antes de renderizar la app
@@ -23,8 +24,10 @@ if (window.location.hash) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <OrganizacionProvider>
-      <AppRouter />
-    </OrganizacionProvider>
+    <ToastProvider>
+      <OrganizacionProvider>
+        <AppRouter />
+      </OrganizacionProvider>
+    </ToastProvider>
   </StrictMode>,
 )

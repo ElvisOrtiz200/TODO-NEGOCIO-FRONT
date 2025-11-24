@@ -4,9 +4,11 @@ import OrganizacionForm from "../components/OrganizacionForm";
 import AsignarUsuariosModal from "../components/AsignarUsuariosModal";
 import { getUsuariosOrganizacion } from "../services/organizacionService";
 import SuperAdminRoute from "../../../components/SuperAdminRoute";
+import { useToast } from "../../../components/ToastContainer";
 
 function OrganizacionesPageContent() {
   const { organizaciones, loading, error, addOrganizacion, editOrganizacion, removeOrganizacion, reloadOrganizaciones } = useOrganizaciones();
+  const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedOrganizacion, setSelectedOrganizacion] = useState(null);
   const [showAsignarUsuarios, setShowAsignarUsuarios] = useState(false);
@@ -23,23 +25,27 @@ function OrganizacionesPageContent() {
       if (selectedOrganizacion) {
         const resultado = await editOrganizacion(selectedOrganizacion.idOrganizacion, organizacion);
         if (resultado.success) {
+          await reloadOrganizaciones();
           setShowForm(false);
           setSelectedOrganizacion(null);
+          success("Organización actualizada exitosamente");
         } else {
-          alert(`Error: ${resultado.error}`);
+          showError(resultado.error || "Error al actualizar la organización");
         }
       } else {
         const resultado = await addOrganizacion(organizacion);
         if (resultado.success) {
+          await reloadOrganizaciones();
           setShowForm(false);
           setSelectedOrganizacion(null);
+          success("Organización creada exitosamente");
         } else {
-          alert(`Error: ${resultado.error}`);
+          showError(resultado.error || "Error al crear la organización");
         }
       }
     } catch (error) {
       console.error("Error al guardar la organización:", error);
-      alert("Error al guardar la organización");
+      showError("Error al guardar la organización");
     }
   };
 

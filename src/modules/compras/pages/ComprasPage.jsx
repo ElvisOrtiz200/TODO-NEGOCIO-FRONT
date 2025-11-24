@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useCompras } from "../hooks/useCompras";
 import CompraForm from "../components/CompraForm";
 import { useProductos } from "../../productos/hooks/useProductos";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function ComprasPage() {
   const { compras, loading, addCompra, removeCompra, loadCompras } = useCompras();
   const { loadProductos } = useProductos();
+  const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState(null);
 
@@ -17,10 +19,10 @@ export default function ComprasPage() {
       await loadCompras();
       setShowForm(false);
       setSelectedCompra(null);
-      alert("Compra registrada exitosamente");
+      success("Compra registrada exitosamente");
     } catch (error) {
       console.error("Error al guardar la compra:", error);
-      alert("Error al registrar la compra");
+      showError("Error al registrar la compra");
     }
   };
 

@@ -23,22 +23,43 @@ export const useProductos = () => {
   };
 
   const addProducto = async (producto) => {
-    const nuevo = await createProducto(producto);
-    setProductos([...productos, nuevo]);
+    try {
+      console.log("📝 Creando producto con datos:", producto);
+      const nuevo = await createProducto(producto);
+      console.log("✅ Producto creado exitosamente:", nuevo);
+      // Recargar la lista completa para asegurar sincronización
+      await loadProductos();
+      return nuevo;
+    } catch (err) {
+      console.error("❌ Error creando producto:", err);
+      throw err;
+    }
   };
 
   const editProducto = async (idProducto, producto) => {
-    const actualizado = await updateProducto(idProducto, producto);
-    setProductos(
-      productos.map((p) =>
-        p.idProducto === idProducto ? actualizado : p
-      )
-    );
+    try {
+      console.log("✏️ Actualizando producto:", idProducto, producto);
+      const actualizado = await updateProducto(idProducto, producto);
+      console.log("✅ Producto actualizado exitosamente:", actualizado);
+      // Recargar la lista completa para asegurar sincronización
+      await loadProductos();
+      return actualizado;
+    } catch (err) {
+      console.error("❌ Error actualizando producto:", err);
+      throw err;
+    }
   };
 
   const removeProducto = async (idProducto) => {
-    await deleteProducto(idProducto);
-    setProductos(productos.filter((p) => p.idProducto !== idProducto));
+    try {
+      console.log("🗑️ Eliminando producto:", idProducto);
+      await deleteProducto(idProducto);
+      // Recargar la lista completa para asegurar sincronización
+      await loadProductos();
+    } catch (err) {
+      console.error("❌ Error eliminando producto:", err);
+      throw err;
+    }
   };
 
   useEffect(() => {

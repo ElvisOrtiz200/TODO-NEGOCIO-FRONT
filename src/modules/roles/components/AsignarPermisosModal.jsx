@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { usePermisos } from "../../permisos/hooks/usePermisos";
 import { asignarPermisosARol, getPermisosByRol } from "../../rolesPermisos/services/rolPermisoService";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function AsignarPermisosModal({ rol, onClose, onSuccess }) {
   const { permisos, loading: permisosLoading } = usePermisos();
+  const { success, error: showError } = useToast();
   const [permisosSeleccionados, setPermisosSeleccionados] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -46,7 +48,7 @@ export default function AsignarPermisosModal({ rol, onClose, onSuccess }) {
       await asignarPermisosARol(rol.idRol, permisosSeleccionados);
       
       console.log("✅ Permisos asignados exitosamente");
-      alert("✅ Permisos asignados exitosamente");
+      success("Permisos asignados exitosamente");
       
       if (onSuccess) onSuccess();
       onClose();
@@ -56,9 +58,9 @@ export default function AsignarPermisosModal({ rol, onClose, onSuccess }) {
       
       // Mensaje más específico para errores 403
       if (errorMsg.includes("403") || errorMsg.includes("Forbidden") || errorMsg.includes("row-level security")) {
-        alert("❌ Error: No tienes permisos para asignar permisos a roles. Solo los superadmins pueden realizar esta acción.\n\nSi eres superadmin, verifica las políticas RLS en Supabase ejecutando el script POLITICAS_RLS_ROLPERMISO.sql");
+        showError("No tienes permisos para asignar permisos a roles. Solo los superadmins pueden realizar esta acción.");
       } else {
-        alert(`❌ Error al asignar permisos: ${errorMsg}`);
+        showError(errorMsg);
       }
     } finally {
       setLoading(false);

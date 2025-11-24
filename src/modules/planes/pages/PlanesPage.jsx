@@ -2,9 +2,11 @@ import { useState, useMemo } from "react";
 import { usePlanes } from "../hooks/usePlanes";
 import PlanForm from "../components/PlanForm";
 import SuperAdminRoute from "../../../components/SuperAdminRoute";
+import { useToast } from "../../../components/ToastContainer";
 
 function PlanesPageContent() {
-  const { planes, loading, error, addPlan, editPlan, removePlan } = usePlanes();
+  const { planes, loading, error, addPlan, editPlan, removePlan, reloadPlanes } = usePlanes();
+  const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   
@@ -20,23 +22,27 @@ function PlanesPageContent() {
       if (selectedPlan) {
         const resultado = await editPlan(selectedPlan.idPlan, plan);
         if (resultado.success) {
+          await reloadPlanes();
           setShowForm(false);
           setSelectedPlan(null);
+          success("Plan actualizado exitosamente");
         } else {
-          alert(`Error: ${resultado.error}`);
+          showError(resultado.error || "Error al actualizar el plan");
         }
       } else {
         const resultado = await addPlan(plan);
         if (resultado.success) {
+          await reloadPlanes();
           setShowForm(false);
           setSelectedPlan(null);
+          success("Plan creado exitosamente");
         } else {
-          alert(`Error: ${resultado.error}`);
+          showError(resultado.error || "Error al crear el plan");
         }
       }
     } catch (error) {
       console.error("Error al guardar el plan:", error);
-      alert("Error al guardar el plan. Por favor, verifica los datos.");
+      showError("Error al guardar el plan. Por favor, verifica los datos.");
     }
   };
 

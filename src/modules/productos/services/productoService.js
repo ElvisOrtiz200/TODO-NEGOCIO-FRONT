@@ -5,7 +5,11 @@ const TABLE = "PRODUCTO";
 export const getProductos = async () => {
   const { data, error } = await supabase
     .from(TABLE)
-    .select("*")
+    .select(`
+      *,
+      categoria:CATEGORIA(*),
+      almacen:ALMACEN(*)
+    `)
     .eq("estadoProducto", true)
     .order("idProducto", { ascending: true });
   if (error) throw error;

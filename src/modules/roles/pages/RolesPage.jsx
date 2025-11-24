@@ -4,10 +4,12 @@ import RolForm from "../components/RolForm";
 import AsignarPermisosModal from "../components/AsignarPermisosModal";
 import { usePermissions } from "../../../hooks/usePermissions";
 import PermisoGuard from "../../../components/PermisoGuard";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function RolesPage() {
   const { roles, loading, error, addRol, editRol, removeRol, reloadRoles } = useRoles();
   const { isSuperAdmin, tienePermiso, loading: permissionsLoading } = usePermissions();
+  const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedRol, setSelectedRol] = useState(null);
   const [showPermisosModal, setShowPermisosModal] = useState(false);
@@ -50,17 +52,17 @@ export default function RolesPage() {
         setShowForm(false);
         setSelectedRol(null);
         // Mostrar mensaje de éxito
-        alert(selectedRol ? "✅ Rol actualizado exitosamente" : "✅ Rol creado exitosamente");
+        success(selectedRol ? "Rol actualizado exitosamente" : "Rol creado exitosamente");
       } else {
         // Si hay error en el resultado
         const errorMsg = resultado?.error || "Error desconocido al guardar el rol";
         console.error("❌ Error al guardar el rol:", errorMsg);
-        alert(`❌ Error: ${errorMsg}`);
+        showError(errorMsg);
       }
     } catch (error) {
       console.error("❌ Excepción al guardar el rol:", error);
       const errorMsg = error?.message || error?.toString() || "Error desconocido al guardar el rol";
-      alert(`❌ Error al guardar el rol: ${errorMsg}`);
+      showError(errorMsg);
     }
   };
 
@@ -314,9 +316,15 @@ export default function RolesPage() {
                         )}
                         {puedeEliminar && (
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (window.confirm(`¿Estás seguro de eliminar el rol "${rol.nombreRol}"?`)) {
-                                removeRol(rol.idRol);
+                                try {
+                                  await removeRol(rol.idRol);
+                                  await reloadRoles();
+                                  success("Rol eliminado exitosamente");
+                                } catch (error) {
+                                  showError("Error al eliminar el rol");
+                                }
                               }
                             }}
                             className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"

@@ -7,6 +7,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
   const { roles } = useRoles();
   const [email, setEmail] = useState("");
   const [nombreUsuario, setNombreUsuario] = useState("");
+  const [telefonoUsuario, setTelefonoUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authUserId, setAuthUserId] = useState("");
@@ -20,6 +21,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
     if (initialData) {
       setEmail(initialData.emailUsuario || initialData.email || "");
       setNombreUsuario(initialData.nombreUsuario || "");
+      setTelefonoUsuario(initialData.telefonoUsuario || "");
       setAuthUserId(initialData.authUserId || "");
       setModoCrear(false); // Si hay datos, es modo edición
       
@@ -49,6 +51,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       setModoCrear(true);
       setEmail("");
       setNombreUsuario("");
+      setTelefonoUsuario("");
       setPassword("");
       setConfirmPassword("");
       setAuthUserId("");
@@ -203,10 +206,11 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
             authUserId: data.user.id,
             emailUsuario: email.trim(),
             nombreUsuario: nombreUsuario.trim(),
+            telefonoUsuario: telefonoUsuario.trim() || null,
             estadoUsuario: true,
             organizacionId: organizacionId || null,
           })
-          .select("idUsuario, authUserId, emailUsuario, nombreUsuario")
+          .select("idUsuario, authUserId, emailUsuario, nombreUsuario, telefonoUsuario")
           .single();
 
         if (insertError) {
@@ -242,6 +246,9 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
         }
         if (nombreUsuario.trim() && nombreUsuario.trim() !== usuarioCreado.nombreUsuario) {
           datosActualizar.nombreUsuario = nombreUsuario.trim();
+        }
+        if (telefonoUsuario.trim()) {
+          datosActualizar.telefonoUsuario = telefonoUsuario.trim();
         }
         
         if (Object.keys(datosActualizar).length > 0) {
@@ -293,6 +300,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
         idUsuario: usuarioCreado.idUsuario,
         emailUsuario: email.trim(),
         nombreUsuario: nombreUsuario.trim(),
+        telefonoUsuario: telefonoUsuario.trim() || null,
         organizacionId: organizacionId || null,
         rolId: rolId ? parseInt(rolId) : null,
         estadoUsuario: true,
@@ -318,7 +326,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       // Buscar usuario en la tabla USUARIO
       const { data: usuarios, error: usuarioError } = await supabase
         .from("USUARIO")
-        .select("authUserId, emailUsuario, nombreUsuario")
+        .select("authUserId, emailUsuario, nombreUsuario, telefonoUsuario")
         .eq("emailUsuario", email.trim())
         .maybeSingle();
 
@@ -329,6 +337,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       if (usuarios) {
         setAuthUserId(usuarios.authUserId);
         setNombreUsuario(usuarios.nombreUsuario || email.split("@")[0]);
+        setTelefonoUsuario(usuarios.telefonoUsuario || "");
         setError("");
       } else {
         // Si no existe en USUARIO, buscar en auth.users (solo si tenemos acceso admin)
@@ -378,6 +387,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       authUserId,
       emailUsuario: email.trim(),
       nombreUsuario: nombreUsuario.trim(),
+      telefonoUsuario: telefonoUsuario.trim() || null,
       organizacionId: organizacionId,
       rolId: rolId ? parseInt(rolId) : null, // Se usará para asignar el rol después
       estadoUsuario: true,
@@ -507,6 +517,19 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
           placeholder="Nombre completo"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Teléfono del Usuario
+        </label>
+        <input
+          type="tel"
+          value={telefonoUsuario}
+          onChange={(e) => setTelefonoUsuario(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
+          placeholder="Ej: +51 987 654 321"
         />
       </div>
 

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function RolForm({ initialData, onSubmit, onCancel }) {
+  const { warning } = useToast();
   const [nombreRol, setNombreRol] = useState("");
   const [descripcionRol, setDescripcionRol] = useState("");
 
@@ -16,7 +18,7 @@ export default function RolForm({ initialData, onSubmit, onCancel }) {
     
     // Validar que el nombre no esté vacío
     if (!nombreRol.trim()) {
-      alert("El nombre del rol es obligatorio");
+      warning("El nombre del rol es obligatorio");
       return;
     }
     

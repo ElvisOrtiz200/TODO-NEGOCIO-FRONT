@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useProductos } from "../../productos/hooks/useProductos";
 import { useProveedores } from "../../proveedores/hooks/useProveedores";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function CompraForm({ initialData, onSubmit, onCancel }) {
   const { productos } = useProductos();
   const { proveedores } = useProveedores();
+  const { warning } = useToast();
   const [idProveedor, setIdProveedor] = useState("");
   const [detalles, setDetalles] = useState([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState("");
@@ -49,12 +51,12 @@ export default function CompraForm({ initialData, onSubmit, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (detalles.length === 0) {
-      alert("Debe agregar al menos un producto");
+      warning("Debe agregar al menos un producto");
       return;
     }
 
     if (!idProveedor) {
-      alert("Debe seleccionar un proveedor");
+      warning("Debe seleccionar un proveedor");
       return;
     }
 

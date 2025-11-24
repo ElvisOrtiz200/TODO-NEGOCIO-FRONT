@@ -3,11 +3,13 @@ import { useUsuarios } from "../hooks/useUsuarios";
 import UsuarioForm from "../components/UsuarioForm";
 import { useOrganizacion } from "../../../context/OrganizacionContext";
 import { usePermissions } from "../../../hooks/usePermissions";
-import { asignarRolesAUsuario } from "../services/usuarioRolService";
+import { asignarRolesAUsuario, getRolesByUsuario } from "../services/usuarioRolService";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function UsuariosPage() {
   const { organizacion } = useOrganizacion();
   const { isSuperAdmin, loading: permissionsLoading } = usePermissions();
+  const { success, error: showError, warning } = useToast();
   // Si es superadmin, pasar null para obtener todos los usuarios
   const organizacionId = isSuperAdmin ? null : (organizacion?.idOrganizacion || null);
   const { usuarios, loading, error, addUsuario, editUsuario, removeUsuario, reload } = useUsuarios(organizacionId);
@@ -30,21 +32,50 @@ export default function UsuariosPage() {
         // Actualizar datos del usuario
         const resultado = await editUsuario(selectedUsuario.idUsuario, datosUsuario);
         if (resultado.success) {
-          // Asignar rol si se proporcionó
+          // Asignar rol solo si se proporcionó y es diferente al actual
           if (rolId) {
             try {
-              await asignarRolesAUsuario(selectedUsuario.idUsuario, [rolId]);
+              // Obtener los roles actuales del usuario
+              const rolesActuales = await getRolesByUsuario(selectedUsuario.idUsuario);
+              const rolActualId = rolesActuales && rolesActuales.length > 0 
+                ? rolesActuales.find(r => r.estadoUsuarioRol)?.idRol 
+                : null;
+              
+              // Convertir a número para comparación
+              const rolIdNum = parseInt(rolId);
+              const rolActualIdNum = rolActualId ? parseInt(rolActualId) : null;
+              
+              // Solo asignar si el rol cambió o si no tiene rol asignado
+              if (rolActualIdNum !== rolIdNum) {
+                console.log(`🔄 Rol cambió de ${rolActualIdNum} a ${rolIdNum}, actualizando...`);
+                await asignarRolesAUsuario(selectedUsuario.idUsuario, [rolIdNum]);
+              } else {
+                console.log(`ℹ️ El rol no cambió (${rolIdNum}), no se actualiza la asignación`);
+              }
             } catch (rolError) {
               console.error("Error asignando rol:", rolError);
-              alert("Usuario actualizado pero hubo un error al asignar el rol");
+              const errorMsg = rolError?.message || rolError?.toString() || "Error desconocido";
+              const errorCode = rolError?.code || "";
+              
+              // Mensaje más específico para errores de RLS o recursión
+              if (errorCode === "42501" || errorCode === "42P17" || 
+                  errorMsg.includes("403") || errorMsg.includes("Forbidden") || 
+                  errorMsg.includes("row-level security") || errorMsg.includes("infinite recursion")) {
+                showError("No tienes permisos para asignar roles. Solo los superadmins pueden realizar esta acción. Si eres superadmin, ejecuta el script POLITICAS_RLS_USUARIOROL.sql en Supabase.");
+              } else {
+                warning(`Usuario actualizado pero hubo un error al asignar el rol: ${errorMsg}`);
+              }
             }
+          } else {
+            console.log("ℹ️ No se proporcionó rolId, no se actualiza la asignación de roles");
           }
           // Recargar la lista después de actualizar
           await reload();
           setShowForm(false);
           setSelectedUsuario(null);
+          success("Usuario actualizado exitosamente");
         } else {
-          alert(`Error: ${resultado.error}`);
+          showError(resultado.error || "Error al actualizar el usuario");
         }
       } else {
         // Crear nuevo usuario o actualizar si ya existe (por trigger)
@@ -68,20 +99,28 @@ export default function UsuariosPage() {
               await asignarRolesAUsuario(idUsuario, [rolId]);
             } catch (rolError) {
               console.error("Error asignando rol:", rolError);
-              alert("Usuario creado pero hubo un error al asignar el rol");
+              const errorMsg = rolError?.message || rolError?.toString() || "Error desconocido";
+              
+              // Mensaje más específico para errores 403 (RLS)
+              if (errorMsg.includes("403") || errorMsg.includes("Forbidden") || errorMsg.includes("row-level security")) {
+                showError("No tienes permisos para asignar roles. Solo los superadmins pueden realizar esta acción. Si eres superadmin, ejecuta el script POLITICAS_RLS_USUARIOROL.sql en Supabase.");
+              } else {
+                warning(`Usuario creado pero hubo un error al asignar el rol: ${errorMsg}`);
+              }
             }
           }
           // Recargar la lista después de crear/actualizar
           await reload();
           setShowForm(false);
           setSelectedUsuario(null);
+          success("Usuario creado exitosamente");
         } else {
-          alert(`Error: ${resultado.error}`);
+          showError(resultado.error || "Error al crear el usuario");
         }
       }
     } catch (error) {
       console.error("Error al guardar el usuario:", error);
-      alert("Error al guardar el usuario");
+      showError("Error al guardar el usuario");
     }
   };
 
@@ -362,6 +401,7 @@ export default function UsuariosPage() {
                     <th className="p-3 text-left">ID</th>
                     <th className="p-3 text-left">Nombre</th>
                     <th className="p-3 text-left">Email</th>
+                    <th className="p-3 text-left">Teléfono</th>
                     <th className="p-3 text-left">Rol</th>
                     <th className="p-3 text-left">Organización</th>
                     <th className="p-3 text-left">Estado</th>
@@ -374,6 +414,7 @@ export default function UsuariosPage() {
                       <td className="p-3">{usuario.idUsuario}</td>
                       <td className="p-3 font-medium">{usuario.nombreUsuario}</td>
                       <td className="p-3">{usuario.emailUsuario}</td>
+                      <td className="p-3">{usuario.telefonoUsuario || "-"}</td>
                       <td className="p-3">
                         {usuario.roles && usuario.roles.length > 0 ? (
                           <div className="flex flex-wrap gap-1">

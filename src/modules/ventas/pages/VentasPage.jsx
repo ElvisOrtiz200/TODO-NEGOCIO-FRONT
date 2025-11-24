@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useVentas } from "../hooks/useVentas";
 import VentaForm from "../components/VentaForm";
 import { useProductos } from "../../productos/hooks/useProductos";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function VentasPage() {
   const { ventas, loading, addVenta, removeVenta, loadVentas } = useVentas();
   const { loadProductos } = useProductos();
+  const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState(null);
 
@@ -17,10 +19,10 @@ export default function VentasPage() {
       await loadVentas();
       setShowForm(false);
       setSelectedVenta(null);
-      alert("Venta registrada exitosamente");
+      success("Venta registrada exitosamente");
     } catch (error) {
       console.error("Error al guardar la venta:", error);
-      alert("Error al registrar la venta");
+      showError("Error al registrar la venta");
     }
   };
 

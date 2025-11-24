@@ -23,22 +23,43 @@ export const useClientes = () => {
   };
 
   const addCliente = async (cliente) => {
-    const nuevo = await createCliente(cliente);
-    setClientes([...clientes, nuevo]);
+    try {
+      console.log("📝 Creando cliente con datos:", cliente);
+      const nuevo = await createCliente(cliente);
+      console.log("✅ Cliente creado exitosamente:", nuevo);
+      // Recargar la lista completa para asegurar sincronización
+      await loadClientes();
+      return nuevo;
+    } catch (err) {
+      console.error("❌ Error creando cliente:", err);
+      throw err;
+    }
   };
 
   const editCliente = async (idCliente, cliente) => {
-    const actualizado = await updateCliente(idCliente, cliente);
-    setClientes(
-      clientes.map((c) =>
-        c.idCliente === idCliente ? actualizado : c
-      )
-    );
+    try {
+      console.log("✏️ Actualizando cliente:", idCliente, cliente);
+      const actualizado = await updateCliente(idCliente, cliente);
+      console.log("✅ Cliente actualizado exitosamente:", actualizado);
+      // Recargar la lista completa para asegurar sincronización
+      await loadClientes();
+      return actualizado;
+    } catch (err) {
+      console.error("❌ Error actualizando cliente:", err);
+      throw err;
+    }
   };
 
   const removeCliente = async (idCliente) => {
-    await deleteCliente(idCliente);
-    setClientes(clientes.filter((c) => c.idCliente !== idCliente));
+    try {
+      console.log("🗑️ Eliminando cliente:", idCliente);
+      await deleteCliente(idCliente);
+      // Recargar la lista completa para asegurar sincronización
+      await loadClientes();
+    } catch (err) {
+      console.error("❌ Error eliminando cliente:", err);
+      throw err;
+    }
   };
 
   useEffect(() => {

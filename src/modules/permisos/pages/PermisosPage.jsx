@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
 import { usePermisos } from "../hooks/usePermisos";
 import PermisoForm from "../components/PermisoForm";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function PermisosPage() {
   const { permisos, loading, addPermiso, editPermiso, removePermiso, loadPermisos } = usePermisos();
+  const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedPermiso, setSelectedPermiso] = useState(null);
   
@@ -18,11 +20,11 @@ export default function PermisosPage() {
       if (selectedPermiso) {
         console.log("✏️ Editando permiso:", selectedPermiso.idPermiso);
         await editPermiso(selectedPermiso.idPermiso, permiso);
-        alert("✅ Permiso actualizado exitosamente");
+        success("Permiso actualizado exitosamente");
       } else {
         console.log("➕ Creando nuevo permiso");
         await addPermiso(permiso);
-        alert("✅ Permiso creado exitosamente");
+        success("Permiso creado exitosamente");
       }
       
       // Recargar la lista
@@ -35,9 +37,9 @@ export default function PermisosPage() {
       
       // Mensaje más específico para errores 403
       if (errorMsg.includes("403") || errorMsg.includes("Forbidden") || errorMsg.includes("row-level security")) {
-        alert("❌ Error: No tienes permisos para crear/editar permisos. Solo los superadmins pueden realizar esta acción.\n\nSi eres superadmin, verifica las políticas RLS en Supabase ejecutando el script POLITICAS_RLS_PERMISO.sql");
+        showError("No tienes permisos para crear/editar permisos. Solo los superadmins pueden realizar esta acción.");
       } else {
-        alert(`❌ Error al guardar el permiso: ${errorMsg}`);
+        showError(errorMsg);
       }
     }
   };
@@ -200,7 +202,17 @@ export default function PermisosPage() {
                           Editar
                         </button>
                         <button
-                          onClick={() => removePermiso(permiso.idPermiso)}
+                          onClick={async () => {
+                            if (window.confirm(`¿Estás seguro de eliminar el permiso "${permiso.nombrePermiso}"?`)) {
+                              try {
+                                await removePermiso(permiso.idPermiso);
+                                await loadPermisos();
+                                success("Permiso eliminado exitosamente");
+                              } catch (error) {
+                                showError("Error al eliminar el permiso");
+                              }
+                            }
+                          }}
                           className="text-red-500 hover:underline"
                         >
                           Eliminar

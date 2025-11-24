@@ -104,37 +104,158 @@ export const removerRolDeUsuario = async (idUsuario, idRol) => {
  * Primero elimina todos los roles actuales, luego asigna los nuevos
  */
 export const asignarRolesAUsuario = async (idUsuario, idsRoles) => {
-  // Primero, desactivar todos los roles actuales del usuario
-  await supabase
-    .from(TABLE)
-    .update({ estadoUsuarioRol: false })
-    .eq("idUsuario", idUsuario);
+  try {
+    console.log("📝 Asignando roles al usuario:", { idUsuario, idsRoles });
+    
+    // Si no hay roles para asignar, solo desactivar todos los existentes
+    if (!idsRoles || idsRoles.length === 0) {
+      console.log("ℹ️ No hay roles para asignar, desactivando todos los existentes...");
+      const { error: updateError } = await supabase
+        .from(TABLE)
+        .update({ estadoUsuarioRol: false })
+        .eq("idUsuario", idUsuario);
+      
+      if (updateError) {
+        console.error("❌ Error desactivando roles:", updateError);
+        throw updateError;
+      }
+      return [];
+    }
 
-  // Si no hay roles para asignar, terminar aquí
-  if (!idsRoles || idsRoles.length === 0) {
-    return [];
+    // Obtener los roles actuales del usuario
+    const { data: rolesActuales, error: fetchError } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("idUsuario", idUsuario);
+    
+    if (fetchError) {
+      console.error("❌ Error obteniendo roles actuales:", fetchError);
+      throw fetchError;
+    }
+
+    // Procesar cada rol que se quiere asignar
+    const resultados = [];
+    
+    for (const idRol of idsRoles) {
+      // Verificar si ya existe la relación
+      const relacionExistente = rolesActuales?.find(
+        r => r.idRol === idRol && r.idUsuario === idUsuario
+      );
+
+      if (relacionExistente) {
+        // Si existe, solo reactivarla si está inactiva
+        if (!relacionExistente.estadoUsuarioRol) {
+          console.log(`🔄 Reactivando rol ${idRol} para usuario ${idUsuario}`);
+          const { data, error } = await supabase
+            .from(TABLE)
+            .update({ estadoUsuarioRol: true })
+            .eq("idUsuario", idUsuario)
+            .eq("idRol", idRol)
+            .select(`
+              *,
+              rol:ROL(*)
+            `)
+            .single();
+          
+          if (error) {
+            console.error(`❌ Error reactivando rol ${idRol}:`, error);
+            throw error;
+          }
+          resultados.push(data);
+        } else {
+          console.log(`ℹ️ Rol ${idRol} ya está activo para usuario ${idUsuario}`);
+          // Obtener el rol completo para retornarlo
+          const { data: rolData } = await supabase
+            .from(TABLE)
+            .select(`
+              *,
+              rol:ROL(*)
+            `)
+            .eq("idUsuario", idUsuario)
+            .eq("idRol", idRol)
+            .eq("estadoUsuarioRol", true)
+            .single();
+          
+          if (rolData) {
+            resultados.push(rolData);
+          }
+        }
+      } else {
+        // Si no existe, crear nueva relación
+        console.log(`➕ Creando nueva relación usuario-rol: ${idUsuario} -> ${idRol}`);
+        const { data, error } = await supabase
+          .from(TABLE)
+          .insert({
+            idUsuario,
+            idRol,
+            estadoUsuarioRol: true,
+          })
+          .select(`
+            *,
+            rol:ROL(*)
+          `)
+          .single();
+        
+        if (error) {
+          // Si el error es por duplicado, intentar actualizar
+          if (error.code === "23505" || error.message.includes("duplicate")) {
+            console.log(`⚠️ Duplicado detectado, intentando actualizar rol ${idRol}`);
+            const { data: updatedData, error: updateError } = await supabase
+              .from(TABLE)
+              .update({ estadoUsuarioRol: true })
+              .eq("idUsuario", idUsuario)
+              .eq("idRol", idRol)
+              .select(`
+                *,
+                rol:ROL(*)
+              `)
+              .single();
+            
+            if (updateError) {
+              console.error(`❌ Error actualizando rol ${idRol}:`, updateError);
+              throw updateError;
+            }
+            resultados.push(updatedData);
+          } else {
+            console.error(`❌ Error creando rol ${idRol}:`, error);
+            throw error;
+          }
+        } else {
+          resultados.push(data);
+        }
+      }
+    }
+
+    // Desactivar los roles que no están en la lista
+    const idsRolesActivos = idsRoles.map(id => parseInt(id));
+    const rolesADesactivar = rolesActuales?.filter(
+      r => r.estadoUsuarioRol && !idsRolesActivos.includes(r.idRol)
+    ) || [];
+
+    if (rolesADesactivar.length > 0) {
+      console.log(`🔄 Desactivando ${rolesADesactivar.length} roles que ya no están asignados`);
+      const idsADesactivar = rolesADesactivar.map(r => r.idRol);
+      
+      for (const idRol of idsADesactivar) {
+        const { error: deactivateError } = await supabase
+          .from(TABLE)
+          .update({ estadoUsuarioRol: false })
+          .eq("idUsuario", idUsuario)
+          .eq("idRol", idRol);
+        
+        if (deactivateError) {
+          console.error(`❌ Error desactivando rol ${idRol}:`, deactivateError);
+          // No lanzar error, solo registrar
+        }
+      }
+    }
+    
+    console.log("✅ Roles asignados exitosamente:", resultados.length);
+    return resultados;
+  } catch (error) {
+    console.error("❌ Error en asignarRolesAUsuario:", error);
+    throw error;
   }
-
-  // Luego, crear o reactivar los roles seleccionados
-  const rolesData = idsRoles.map((idRol) => ({
-    idUsuario,
-    idRol,
-    estadoUsuarioRol: true,
-  }));
-
-  const { data, error } = await supabase
-    .from(TABLE)
-    .upsert(rolesData, {
-      onConflict: "idUsuario,idRol",
-      ignoreDuplicates: false,
-    })
-    .select(`
-      *,
-      rol:ROL(*)
-    `);
-  
-  if (error) throw error;
-  return data;
 };
 
 /**

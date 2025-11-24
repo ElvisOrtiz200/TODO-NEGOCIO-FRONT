@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useProductos } from "../../productos/hooks/useProductos";
 import { useClientes } from "../../clientes/hooks/useClientes";
+import { useToast } from "../../../components/ToastContainer";
 
 export default function VentaForm({ initialData, onSubmit, onCancel }) {
   const { productos } = useProductos();
   const { clientes } = useClientes();
+  const { warning } = useToast();
   const [idCliente, setIdCliente] = useState("");
   const [detalles, setDetalles] = useState([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState("");
@@ -48,7 +50,7 @@ export default function VentaForm({ initialData, onSubmit, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (detalles.length === 0) {
-      alert("Debe agregar al menos un producto");
+      warning("Debe agregar al menos un producto");
       return;
     }
 
