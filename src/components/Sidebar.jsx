@@ -1,13 +1,46 @@
 import { NavLink } from "react-router-dom";
 import { usePermissions } from "../hooks/usePermissions";
+import { useState, useEffect } from "react";
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { isSuperAdmin, tienePermiso, loading } = usePermissions();
+
+  // Cerrar sidebar al hacer clic fuera en móvil
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isOpen && window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        if (sidebar && !sidebar.contains(event.target) && menuButton && !menuButton.contains(event.target)) {
+          onClose();
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose]);
 
   if (loading) {
     return (
-      <aside className="w-64 bg-[#2B3E3C] text-white flex flex-col p-4 space-y-2">
-        <h2 className="text-xl font-bold text-center mb-6">ALL-SHOP</h2>
+      <aside 
+        id="sidebar"
+        className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#2B3E3C] text-white flex flex-col p-4 space-y-2 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">ALL-SHOP</h2>
+          <button
+            onClick={onClose}
+            className="md:hidden text-white hover:text-gray-300 p-2"
+            aria-label="Cerrar menú"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         <div className="text-center py-4">
           <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
         </div>
@@ -16,8 +49,33 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 bg-[#2B3E3C] text-white flex flex-col p-4 space-y-2">
-      <h2 className="text-xl font-bold text-center mb-6">ALL-SHOP</h2>
+    <>
+      {/* Overlay para móvil */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      <aside 
+        id="sidebar"
+        className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#2B3E3C] text-white flex flex-col p-4 space-y-2 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">ALL-SHOP</h2>
+          <button
+            onClick={onClose}
+            className="md:hidden text-white hover:text-gray-300 p-2"
+            aria-label="Cerrar menú"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
       {/* DASHBOARD */}
       <NavLink
@@ -291,6 +349,7 @@ export default function Sidebar() {
           📈 Reportes
         </NavLink>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }

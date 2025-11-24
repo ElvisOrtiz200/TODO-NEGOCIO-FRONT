@@ -1,11 +1,14 @@
-import { Outlet } from "react-router-dom";
-import { useEffect } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import ProtectedRoute from "./ProtectedRoute";
 import { supabase } from "../api/supabaseClient";
 
 export default function Layout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
   // Procesar el hash de OAuth si viene en la URL
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -33,13 +36,20 @@ export default function Layout() {
     handleOAuthCallback();
   }, []);
 
+  // Cerrar sidebar al cambiar de ruta en móvil
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]);
+
   return (
     <ProtectedRoute>
       <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="flex-1 flex flex-col">
-          <Navbar />
-          <main className="p-6 flex-1 overflow-y-auto bg-gray-50">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex-1 flex flex-col w-full md:w-auto">
+          <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+          <main className="p-3 md:p-6 flex-1 overflow-y-auto bg-gray-50">
             <Outlet />
           </main>
         </div>
