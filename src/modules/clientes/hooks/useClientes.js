@@ -5,15 +5,19 @@ import {
   updateCliente,
   deleteCliente,
 } from "../services/clienteService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useClientes = () => {
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadClientes = async () => {
     try {
       setLoading(true);
-      const data = await getClientes();
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
+      const data = await getClientes(idOrganizacion);
       setClientes(data);
     } catch (err) {
       console.error("Error al cargar clientes:", err.message);
@@ -64,7 +68,7 @@ export const useClientes = () => {
 
   useEffect(() => {
     loadClientes();
-  }, []);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return { clientes, loading, addCliente, editCliente, removeCliente, loadClientes };
 };

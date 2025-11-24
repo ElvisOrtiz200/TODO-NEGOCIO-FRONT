@@ -5,10 +5,14 @@ import AsignarUsuariosModal from "../components/AsignarUsuariosModal";
 import { getUsuariosOrganizacion } from "../services/organizacionService";
 import SuperAdminRoute from "../../../components/SuperAdminRoute";
 import { useToast } from "../../../components/ToastContainer";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
+import { useNavigate } from "react-router-dom";
 
 function OrganizacionesPageContent() {
   const { organizaciones, loading, error, addOrganizacion, editOrganizacion, removeOrganizacion, reloadOrganizaciones } = useOrganizaciones();
   const { success, error: showError } = useToast();
+  const { entrarAOrganizacion } = useOrganizacion();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [selectedOrganizacion, setSelectedOrganizacion] = useState(null);
   const [showAsignarUsuarios, setShowAsignarUsuarios] = useState(false);
@@ -83,6 +87,13 @@ function OrganizacionesPageContent() {
   };
 
   const tieneFiltrosActivos = filtroNombre !== "" || filtroEstado !== "todos" || filtroPlan !== "todos" || filtroCodigo !== "";
+
+  // Función para acceder a una organización
+  const handleAccederOrganizacion = (organizacion) => {
+    entrarAOrganizacion(organizacion);
+    navigate("/home/dashboard");
+    success(`Accediendo a la organización: ${organizacion.nombreOrganizacion}`);
+  };
 
   return (
     <div className="p-6">
@@ -275,35 +286,47 @@ function OrganizacionesPageContent() {
                           {org.estadoOrganizacion ? "Activa" : "Inactiva"}
                         </span>
                       </td>
-                      <td className="p-3 text-center space-x-3">
+                      <td className="p-3 text-center space-x-2">
                         <button
-                          onClick={() => {
-                            setSelectedOrganizacion(org);
-                            setShowForm(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                          onClick={() => handleAccederOrganizacion(org)}
+                          className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1 mx-auto"
+                          title="Acceder a esta organización"
                         >
-                          Editar
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                          Acceder
                         </button>
-                        <button
-                          onClick={() => {
-                            setOrganizacionParaUsuarios(org);
-                            setShowAsignarUsuarios(true);
-                          }}
-                          className="text-purple-600 hover:text-purple-800 hover:underline text-sm font-medium"
-                        >
-                          Usuarios
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`¿Estás seguro de eliminar la organización "${org.nombreOrganizacion}"?`)) {
-                              removeOrganizacion(org.idOrganizacion);
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                        >
-                          Eliminar
-                        </button>
+                        <div className="flex gap-2 justify-center mt-2">
+                          <button
+                            onClick={() => {
+                              setSelectedOrganizacion(org);
+                              setShowForm(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOrganizacionParaUsuarios(org);
+                              setShowAsignarUsuarios(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-800 hover:underline text-sm font-medium"
+                          >
+                            Usuarios
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`¿Estás seguro de eliminar la organización "${org.nombreOrganizacion}"?`)) {
+                                removeOrganizacion(org.idOrganizacion);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

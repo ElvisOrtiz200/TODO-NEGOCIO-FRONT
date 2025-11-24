@@ -3,6 +3,7 @@ import { useProductos } from "../hooks/useProductos";
 import ProductoForm from "../components/ProductoForm";
 import PermisoGuard from "../../../components/PermisoGuard";
 import { usePermissions } from "../../../hooks/usePermissions";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 import { useToast } from "../../../components/ToastContainer";
 
 export default function ProductoPage() {
@@ -11,6 +12,7 @@ export default function ProductoPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedProducto, setSelectedProducto] = useState(null);
   const { tienePermiso, isSuperAdmin, loading: permissionsLoading } = usePermissions();
+  const { organizacionVista } = useOrganizacion();
   
   // Estados para filtros
   const [filtroNombre, setFiltroNombre] = useState("");
@@ -129,10 +131,14 @@ export default function ProductoPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#2B3E3C]">Gestión de Productos</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra tu inventario de productos
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : (
+              <span>Administra tu inventario de productos</span>
+            )}
           </p>
         </div>
-        {!showForm && (
+        {!showForm && !organizacionVista && (
           <PermisoGuard permiso="productos.crear">
             <button
               onClick={() => {
@@ -147,8 +153,8 @@ export default function ProductoPage() {
         )}
       </div>
 
-      {/* FORMULARIO */}
-      {showForm ? (
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             {selectedProducto ? "Editar Producto" : "Nuevo Producto"}
@@ -347,7 +353,9 @@ export default function ProductoPage() {
                       <th className="p-3 text-left">Precio Venta</th>
                       <th className="p-3 text-left">Stock</th>
                       <th className="p-3 text-left">Estado</th>
-                      <th className="p-3 text-center">Acciones</th>
+                      {!organizacionVista && (
+                        <th className="p-3 text-center">Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -382,37 +390,39 @@ export default function ProductoPage() {
                             {p.estadoProducto ? "Activo" : "Inactivo"}
                           </span>
                         </td>
-                        <td className="p-3 text-center space-x-3">
-                          <PermisoGuard permiso="productos.editar">
-                            <button
-                              onClick={() => {
-                                setSelectedProducto(p);
-                                setShowForm(true);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                            >
-                              Editar
-                            </button>
-                          </PermisoGuard>
-                          <PermisoGuard permiso="productos.eliminar">
-                            <button
-                              onClick={async () => {
-                                if (window.confirm(`¿Estás seguro de eliminar el producto "${p.nombreProducto}"?`)) {
-                                  try {
-                                    await removeProducto(p.idProducto);
-                                    await loadProductos();
-                                    success("Producto eliminado exitosamente");
-                                  } catch (error) {
-                                    showError("Error al eliminar el producto");
+                        {!organizacionVista && (
+                          <td className="p-3 text-center space-x-3">
+                            <PermisoGuard permiso="productos.editar">
+                              <button
+                                onClick={() => {
+                                  setSelectedProducto(p);
+                                  setShowForm(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                              >
+                                Editar
+                              </button>
+                            </PermisoGuard>
+                            <PermisoGuard permiso="productos.eliminar">
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(`¿Estás seguro de eliminar el producto "${p.nombreProducto}"?`)) {
+                                    try {
+                                      await removeProducto(p.idProducto);
+                                      await loadProductos();
+                                      success("Producto eliminado exitosamente");
+                                    } catch (error) {
+                                      showError("Error al eliminar el producto");
+                                    }
                                   }
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                            >
-                              Eliminar
-                            </button>
-                          </PermisoGuard>
-                        </td>
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                              >
+                                Eliminar
+                              </button>
+                            </PermisoGuard>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

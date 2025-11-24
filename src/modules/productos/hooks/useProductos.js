@@ -8,14 +8,16 @@ import {
 import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useProductos = () => {
-  const { organizacion } = useOrganizacion();
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadProductos = async () => {
     try {
       setLoading(true);
-      const idOrganizacion = organizacion?.idOrganizacion || null;
+      // Usar organizacionVista si existe, sino usar organizacion
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
       const data = await getProductos(idOrganizacion);
       setProductos(data);
     } catch (err) {
@@ -28,8 +30,9 @@ export const useProductos = () => {
   const addProducto = async (producto) => {
     try {
       // Agregar idOrganizacion si no está presente
-      if (!producto.idOrganizacion && organizacion?.idOrganizacion) {
-        producto.idOrganizacion = organizacion.idOrganizacion;
+      const orgActiva = organizacionVista || organizacion;
+      if (!producto.idOrganizacion && orgActiva?.idOrganizacion) {
+        producto.idOrganizacion = orgActiva.idOrganizacion;
       }
       console.log("📝 Creando producto con datos:", producto);
       const nuevo = await createProducto(producto);
@@ -70,10 +73,11 @@ export const useProductos = () => {
   };
 
   useEffect(() => {
-    if (organizacion?.idOrganizacion) {
+    const orgActiva = organizacionVista || organizacion;
+    if (orgActiva?.idOrganizacion) {
       loadProductos();
     }
-  }, [organizacion?.idOrganizacion]);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return { productos, loading, addProducto, editProducto, removeProducto, loadProductos };
 };

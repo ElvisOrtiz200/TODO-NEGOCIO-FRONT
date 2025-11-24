@@ -3,7 +3,7 @@ import { supabase } from "../../../api/supabaseClient";
 import { useRoles } from "../../../modules/clientes/hooks/useRoles";
 import { getRolesByUsuario } from "../services/usuarioRolService";
 
-export default function UsuarioForm({ initialData, onSubmit, onCancel, organizacionId }) {
+export default function UsuarioForm({ initialData, onSubmit, onCancel, organizacionId, organizacionNombre = "" }) {
   const { roles } = useRoles();
   const [email, setEmail] = useState("");
   const [nombreUsuario, setNombreUsuario] = useState("");
@@ -242,7 +242,8 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       if (usuarioCreado.idUsuario) {
         const datosActualizar = {};
         if (organizacionId) {
-          datosActualizar.organizacionId = organizacionId;
+          // Asegurar que organizacionId sea string para comparaciones UUID
+          datosActualizar.organizacionId = String(organizacionId);
         }
         if (nombreUsuario.trim() && nombreUsuario.trim() !== usuarioCreado.nombreUsuario) {
           datosActualizar.nombreUsuario = nombreUsuario.trim();
@@ -295,13 +296,15 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       setError("");
       
       // Continuar con el submit automáticamente
+      // Asegurar que organizacionId sea string para comparaciones UUID
+      const orgId = organizacionId ? String(organizacionId) : null;
       onSubmit({
         authUserId: data.user.id,
         idUsuario: usuarioCreado.idUsuario,
         emailUsuario: email.trim(),
         nombreUsuario: nombreUsuario.trim(),
         telefonoUsuario: telefonoUsuario.trim() || null,
-        organizacionId: organizacionId || null,
+        organizacionId: orgId,
         rolId: rolId ? parseInt(rolId) : null,
         estadoUsuario: true,
       });
@@ -383,12 +386,14 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       return;
     }
 
+    // Asegurar que organizacionId sea string para comparaciones UUID
+    const orgId = organizacionId ? String(organizacionId) : null;
     onSubmit({
       authUserId,
       emailUsuario: email.trim(),
       nombreUsuario: nombreUsuario.trim(),
       telefonoUsuario: telefonoUsuario.trim() || null,
-      organizacionId: organizacionId,
+      organizacionId: orgId,
       rolId: rolId ? parseInt(rolId) : null, // Se usará para asignar el rol después
       estadoUsuario: true,
     });
@@ -396,6 +401,14 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {organizacionId && (
+        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+          Los usuarios creados desde este formulario se asociarán automáticamente a{" "}
+          <span className="font-semibold text-[#2B3E3C]">
+            {organizacionNombre || "tu organización"}
+          </span>. Solo los administradores pueden modificar esta configuración.
+        </div>
+      )}
       {/* Selector de modo */}
       {!initialData && (
         <div className="flex gap-3 p-3 bg-gray-50 rounded-lg">

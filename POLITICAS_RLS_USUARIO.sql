@@ -1,15 +1,13 @@
 -- =====================================================
--- POLÍTICAS RLS PARA LA TABLA USUARIOROL
+-- POLÍTICAS RLS PARA LA TABLA USUARIO
 -- =====================================================
--- 1. Los administradores de cada organización gestionan
---    a sus usuarios y roles de manera autónoma.
--- 2. El superadmin solo interviene si aún no existe un
---    administrador o si éste otorgó autorización previa.
--- 3. Se mantiene la visibilidad de roles entre usuarios
---    de una misma organización para auditoría interna.
+-- Objetivos:
+-- 1. Los administradores de cada organización gestionan a sus propios usuarios.
+-- 2. El superadmin solo interviene si aún no existe administrador o si tiene autorización explícita.
+-- 3. Cada usuario autenticado puede ver su propio registro.
 -- =====================================================
 
--- Función helper para verificar si un usuario es superadmin
+DROP FUNCTION IF EXISTS is_superadmin(UUID);
 CREATE OR REPLACE FUNCTION is_superadmin(user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -48,7 +46,7 @@ BEGIN
 END;
 $$;
 
--- Helper: obtener idUsuario desde authUserId
+DROP FUNCTION IF EXISTS get_user_id_from_auth(UUID);
 CREATE OR REPLACE FUNCTION get_user_id_from_auth(auth_user_id UUID)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -68,26 +66,6 @@ BEGIN
 END;
 $$;
 
--- Helper: organización a partir del idUsuario (acepta BIGINT para columnas serial/bigserial)
-DROP FUNCTION IF EXISTS get_organizacion_id_from_usuario(BIGINT);
-CREATE OR REPLACE FUNCTION get_organizacion_id_from_usuario(p_id_usuario BIGINT)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  org_id UUID;
-BEGIN
-  SELECT "organizacionId" INTO org_id
-  FROM "USUARIO"
-  WHERE "idUsuario" = p_id_usuario::INTEGER;
-
-  RETURN org_id;
-END;
-$$;
-
--- Helper: saber si una organización ya tiene Administrador activo
 DROP FUNCTION IF EXISTS organizacion_tiene_administrador(UUID);
 DROP FUNCTION IF EXISTS organizacion_tiene_administrador(BIGINT);
 DROP FUNCTION IF EXISTS organizacion_tiene_administrador(INTEGER);
@@ -120,7 +98,6 @@ BEGIN
 END;
 $$;
 
--- Helper: validar si el usuario autenticado es Administrador de su organización
 DROP FUNCTION IF EXISTS es_admin_organizacion(UUID, UUID);
 DROP FUNCTION IF EXISTS es_admin_organizacion(UUID, BIGINT);
 DROP FUNCTION IF EXISTS es_admin_organizacion(UUID, INTEGER);
@@ -164,7 +141,6 @@ BEGIN
 END;
 $$;
 
--- Helper: definir si el superadmin está autorizado a intervenir
 DROP FUNCTION IF EXISTS superadmin_autorizado_para_organizacion(UUID, UUID);
 DROP FUNCTION IF EXISTS superadmin_autorizado_para_organizacion(UUID, BIGINT);
 DROP FUNCTION IF EXISTS superadmin_autorizado_para_organizacion(UUID, INTEGER);
@@ -199,114 +175,115 @@ BEGIN
 END;
 $$;
 
--- =====================================================
--- LIMPIEZA DE POLÍTICAS EXISTENTES
--- =====================================================
-DROP POLICY IF EXISTS "Superadmins pueden ver todas las relaciones usuario-rol" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Superadmins pueden crear relaciones usuario-rol" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Superadmins pueden actualizar relaciones usuario-rol" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Usuarios pueden ver sus propios roles" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Usuarios pueden ver roles de su organización" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Administradores pueden crear relaciones usuario-rol" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Administradores pueden actualizar relaciones usuario-rol" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Superadmins autorizados pueden crear relaciones usuario-rol" ON "USUARIOROL";
-DROP POLICY IF EXISTS "Superadmins autorizados pueden actualizar relaciones usuario-rol" ON "USUARIOROL";
+DROP FUNCTION IF EXISTS pertenece_a_organizacion(UUID, UUID);
+DROP FUNCTION IF EXISTS pertenece_a_organizacion(UUID, BIGINT);
+DROP FUNCTION IF EXISTS pertenece_a_organizacion(UUID, INTEGER);
+CREATE OR REPLACE FUNCTION pertenece_a_organizacion(p_auth_user UUID, p_id_organizacion UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  actor_org UUID;
+BEGIN
+  IF p_id_organizacion IS NULL THEN
+    RETURN false;
+  END IF;
 
-ALTER TABLE "USUARIOROL" ENABLE ROW LEVEL SECURITY;
+  SELECT "organizacionId" INTO actor_org
+  FROM "USUARIO"
+  WHERE "authUserId" = p_auth_user
+    AND "estadoUsuario" = true
+  LIMIT 1;
+
+  RETURN actor_org IS NOT NULL AND actor_org = p_id_organizacion;
+END;
+$$;
 
 -- =====================================================
--- VISUALIZACIÓN DE ROLES
+-- ELIMINAR POLÍTICAS PREVIAS
 -- =====================================================
-CREATE POLICY "Superadmins pueden ver todas las relaciones usuario-rol"
-ON "USUARIOROL"
+DROP POLICY IF EXISTS "Superadmins ven todos los usuarios" ON "USUARIO";
+DROP POLICY IF EXISTS "Usuarios se ven a sí mismos" ON "USUARIO";
+DROP POLICY IF EXISTS "Usuarios ven miembros de su organización" ON "USUARIO";
+DROP POLICY IF EXISTS "Admins pueden crear usuarios" ON "USUARIO";
+DROP POLICY IF EXISTS "Superadmins autorizados pueden crear usuarios" ON "USUARIO";
+DROP POLICY IF EXISTS "Admins pueden actualizar usuarios" ON "USUARIO";
+DROP POLICY IF EXISTS "Superadmins autorizados pueden actualizar usuarios" ON "USUARIO";
+
+ALTER TABLE "USUARIO" ENABLE ROW LEVEL SECURITY;
+
+-- =====================================================
+-- SELECT
+-- =====================================================
+CREATE POLICY "Superadmins ven todos los usuarios"
+ON "USUARIO"
 FOR SELECT
 TO authenticated
 USING (is_superadmin(auth.uid()));
 
-CREATE POLICY "Usuarios pueden ver sus propios roles"
-ON "USUARIOROL"
+CREATE POLICY "Usuarios se ven a sí mismos"
+ON "USUARIO"
 FOR SELECT
 TO authenticated
 USING ("idUsuario" = get_user_id_from_auth(auth.uid()));
 
-CREATE POLICY "Usuarios pueden ver roles de su organización"
-ON "USUARIOROL"
+CREATE POLICY "Usuarios ven miembros de su organización"
+ON "USUARIO"
 FOR SELECT
 TO authenticated
 USING (
-  EXISTS (
-    SELECT 1
-    FROM "USUARIO" u1
-    INNER JOIN "USUARIO" u2 ON u1."organizacionId" = u2."organizacionId"
-    WHERE u1."authUserId" = auth.uid()
-      AND u1."estadoUsuario" = true
-      AND u2."idUsuario" = "USUARIOROL"."idUsuario"
-      AND u2."estadoUsuario" = true
-      AND u1."organizacionId" IS NOT NULL
-  )
+  pertenece_a_organizacion(auth.uid(), "organizacionId")
 );
 
 -- =====================================================
--- CRUD PARA ADMINISTRADORES DE LA ORGANIZACIÓN
+-- INSERT
 -- =====================================================
-CREATE POLICY "Administradores pueden crear relaciones usuario-rol"
-ON "USUARIOROL"
+CREATE POLICY "Admins pueden crear usuarios"
+ON "USUARIO"
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  es_admin_organizacion(
-    auth.uid(),
-    get_organizacion_id_from_usuario("idUsuario")
-  )
+  es_admin_organizacion(auth.uid(), "organizacionId")
 );
 
-CREATE POLICY "Administradores pueden actualizar relaciones usuario-rol"
-ON "USUARIOROL"
-FOR UPDATE
-TO authenticated
-USING (
-  es_admin_organizacion(
-    auth.uid(),
-    get_organizacion_id_from_usuario("idUsuario")
-  )
-)
-WITH CHECK (
-  es_admin_organizacion(
-    auth.uid(),
-    get_organizacion_id_from_usuario("idUsuario")
-  )
-);
-
--- =====================================================
--- CRUD PARA SUPERADMIN CON AUTORIZACIÓN EXPLÍCITA
--- =====================================================
-CREATE POLICY "Superadmins autorizados pueden crear relaciones usuario-rol"
-ON "USUARIOROL"
+CREATE POLICY "Superadmins autorizados pueden crear usuarios"
+ON "USUARIO"
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  superadmin_autorizado_para_organizacion(
-    auth.uid(),
-    get_organizacion_id_from_usuario("idUsuario")
-  )
+  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId")
 );
 
-CREATE POLICY "Superadmins autorizados pueden actualizar relaciones usuario-rol"
-ON "USUARIOROL"
+-- =====================================================
+-- UPDATE
+-- =====================================================
+CREATE POLICY "Admins pueden actualizar usuarios"
+ON "USUARIO"
 FOR UPDATE
 TO authenticated
 USING (
-  superadmin_autorizado_para_organizacion(
-    auth.uid(),
-    get_organizacion_id_from_usuario("idUsuario")
-  )
+  es_admin_organizacion(auth.uid(), "organizacionId")
 )
 WITH CHECK (
-  superadmin_autorizado_para_organizacion(
-    auth.uid(),
-    get_organizacion_id_from_usuario("idUsuario")
-  )
+  es_admin_organizacion(auth.uid(), "organizacionId")
 );
+
+CREATE POLICY "Superadmins autorizados pueden actualizar usuarios"
+ON "USUARIO"
+FOR UPDATE
+TO authenticated
+USING (
+  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId")
+)
+WITH CHECK (
+  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId")
+);
+
+-- =====================================================
+-- DELETE (soft delete) -> se cubre con las políticas de UPDATE
+-- =====================================================
 
 -- =====================================================
 -- VERIFICACIÓN
@@ -321,14 +298,6 @@ SELECT
   qual,
   with_check
 FROM pg_policies
-WHERE tablename = 'USUARIOROL'
+WHERE tablename = 'USUARIO'
 ORDER BY policyname;
-
--- =====================================================
--- NOTAS
--- =====================================================
--- 1. Los administradores tienen control total de sus usuarios.
--- 2. El superadmin requiere autorización explícita cuando ya existe un administrador.
--- 3. Las funciones usan SECURITY DEFINER para evitar problemas con RLS.
-*** End Patch
 

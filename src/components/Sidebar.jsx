@@ -1,9 +1,20 @@
 import { NavLink } from "react-router-dom";
 import { usePermissions } from "../hooks/usePermissions";
+import { useOrganizacion } from "../context/OrganizacionContext";
 import { useState, useEffect } from "react";
 
 export default function Sidebar({ isOpen, onClose }) {
-  const { isSuperAdmin, tienePermiso, loading } = usePermissions();
+  const { isSuperAdmin, tienePermiso, tieneRol, loading } = usePermissions();
+  const { organizacionVista } = useOrganizacion();
+  
+  // Verificar si el usuario es administrador de organización
+  const esAdministradorOrg = tieneRol("ADMINISTRADOR");
+  
+  // Cuando el superadmin está viendo una organización, se comporta como usuario normal
+  const estaViendoOrganizacion = organizacionVista !== null;
+  
+  // Determinar qué mostrar: si está viendo una organización, mostrar como usuario normal
+  const mostrarComoSuperAdmin = isSuperAdmin && !estaViendoOrganizacion;
 
   // Cerrar sidebar al hacer clic fuera en móvil
   useEffect(() => {
@@ -53,7 +64,7 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Overlay para móvil */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          className="fixed inset-0 bg-black/30 z-30 md:hidden"
           onClick={onClose}
         />
       )}
@@ -90,153 +101,159 @@ export default function Sidebar({ isOpen, onClose }) {
         📊 Dashboard
       </NavLink>
 
-      {/* Separador */}
-      <div className="border-t border-gray-600 my-3"></div>
-
-      {/* OPERACIONES */}
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-        Operaciones
-      </h3>
-      
-      {(isSuperAdmin || tienePermiso("ventas.ver")) && (
-        <NavLink
-          to="/home/ventas"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          💰 Ventas
-        </NavLink>
+      {/* Separador - Solo si hay secciones operativas */}
+      {(!mostrarComoSuperAdmin || estaViendoOrganizacion) && (
+        <div className="border-t border-gray-600 my-3"></div>
       )}
 
-      {(isSuperAdmin || tienePermiso("compras.ver")) && (
-        <NavLink
-          to="/home/compras"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          🛒 Compras
-        </NavLink>
-      )}
+      {/* OPERACIONES - Solo para usuarios normales o superadmin viendo organización */}
+      {(!mostrarComoSuperAdmin || estaViendoOrganizacion) && (
+        <>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
+            Operaciones
+          </h3>
+          
+          {(tienePermiso("ventas.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/ventas"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              💰 Ventas
+            </NavLink>
+          )}
 
-      {/* Separador */}
-      <div className="border-t border-gray-600 my-3"></div>
+          {(tienePermiso("compras.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/compras"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              🛒 Compras
+            </NavLink>
+          )}
 
-      {/* PRODUCTOS Y CATÁLOGO */}
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-        Productos y Catálogo
-      </h3>
+          {/* Separador */}
+          <div className="border-t border-gray-600 my-3"></div>
 
-      {(isSuperAdmin || tienePermiso("productos.ver")) && (
-        <NavLink
-          to="/home/productos"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          📦 Productos
-        </NavLink>
-      )}
+          {/* PRODUCTOS Y CATÁLOGO */}
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
+            Productos y Catálogo
+          </h3>
 
-      {(isSuperAdmin || tienePermiso("categorias.ver")) && (
-        <NavLink
-          to="/home/categorias"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          🏷️ Categorías
-        </NavLink>
-      )}
+          {(tienePermiso("productos.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/productos"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              📦 Productos
+            </NavLink>
+          )}
 
-      {/* Separador */}
-      <div className="border-t border-gray-600 my-3"></div>
+          {(tienePermiso("categorias.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/categorias"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              🏷️ Categorías
+            </NavLink>
+          )}
 
-      {/* INVENTARIO */}
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-        Inventario
-      </h3>
+          {/* Separador */}
+          <div className="border-t border-gray-600 my-3"></div>
 
-      {(isSuperAdmin || tienePermiso("inventario.ver")) && (
-        <NavLink
-          to="/home/inventario"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          📋 Stock Actual
-        </NavLink>
-      )}
+          {/* INVENTARIO */}
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
+            Inventario
+          </h3>
 
-      {(isSuperAdmin || tienePermiso("inventario.ver_movimientos")) && (
-        <NavLink
-          to="/home/movimientos-inventario"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          🔄 Movimientos
-        </NavLink>
-      )}
+          {(tienePermiso("inventario.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/inventario"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              📋 Stock Actual
+            </NavLink>
+          )}
 
-      {/* Separador */}
-      <div className="border-t border-gray-600 my-3"></div>
+          {(tienePermiso("inventario.ver_movimientos") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/movimientos-inventario"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              🔄 Movimientos
+            </NavLink>
+          )}
 
-      {/* DATOS MAESTROS */}
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-        Datos Maestros
-      </h3>
+          {/* Separador */}
+          <div className="border-t border-gray-600 my-3"></div>
 
-      {(isSuperAdmin || tienePermiso("clientes.ver")) && (
-        <NavLink
-          to="/home/clientes"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          👥 Clientes
-        </NavLink>
-      )}
+          {/* DATOS MAESTROS */}
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
+            Datos Maestros
+          </h3>
 
-      {(isSuperAdmin || tienePermiso("proveedores.ver")) && (
-        <NavLink
-          to="/home/proveedores"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          🏢 Proveedores
-        </NavLink>
-      )}
+          {(tienePermiso("clientes.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/clientes"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              👥 Clientes
+            </NavLink>
+          )}
 
-      {(isSuperAdmin || tienePermiso("almacenes.ver")) && (
-        <NavLink
-          to="/home/almacenes"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          🏪 Almacenes
-        </NavLink>
+          {(tienePermiso("proveedores.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/proveedores"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              🏢 Proveedores
+            </NavLink>
+          )}
+
+          {(tienePermiso("almacenes.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/almacenes"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              🏪 Almacenes
+            </NavLink>
+          )}
+        </>
       )}
 
       {/* Separador */}
@@ -247,18 +264,22 @@ export default function Sidebar({ isOpen, onClose }) {
         Configuración
       </h3>
 
-      <NavLink
-        to="/home/tipoMovimientos"
-        className={({ isActive }) =>
-          `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-            isActive ? "bg-[#22312f] font-semibold" : ""
-          }`
-        }
-      >
-        ⚙️ Tipo Movimientos
-      </NavLink>
+      {/* Tipo Movimientos - Solo para usuarios normales o superadmin viendo organización */}
+      {(!mostrarComoSuperAdmin || estaViendoOrganizacion) && (
+        <NavLink
+          to="/home/tipoMovimientos"
+          className={({ isActive }) =>
+            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+              isActive ? "bg-[#22312f] font-semibold" : ""
+            }`
+          }
+        >
+          ⚙️ Tipo Movimientos
+        </NavLink>
+      )}
 
-      {(isSuperAdmin || tienePermiso("roles.ver")) && (
+      {/* Roles - Solo si no está viendo una organización o tiene permiso */}
+      {(!estaViendoOrganizacion && (mostrarComoSuperAdmin || tienePermiso("roles.ver"))) && (
         <NavLink
           to="/home/roles"
           className={({ isActive }) =>
@@ -271,7 +292,22 @@ export default function Sidebar({ isOpen, onClose }) {
         </NavLink>
       )}
 
-      {(isSuperAdmin || tienePermiso("configuracion.ver")) && (
+      {/* Usuarios - Visible para administradores de organización o cuando el superadmin está viendo una organización */}
+      {(estaViendoOrganizacion || (!mostrarComoSuperAdmin && esAdministradorOrg)) && (
+        <NavLink
+          to="/home/usuarios"
+          className={({ isActive }) =>
+            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+              isActive ? "bg-[#22312f] font-semibold" : ""
+            }`
+          }
+        >
+          👥 Usuarios
+        </NavLink>
+      )}
+
+      {/* Permisos - Solo para superadmin cuando NO está viendo una organización */}
+      {mostrarComoSuperAdmin && (
         <NavLink
           to="/home/permisos"
           className={({ isActive }) =>
@@ -287,8 +323,8 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Separador */}
       <div className="border-t border-gray-600 my-3"></div>
 
-      {/* ADMINISTRACIÓN (Solo Superadmin) */}
-      {isSuperAdmin && (
+      {/* ADMINISTRACIÓN (Solo Superadmin cuando NO está viendo una organización) */}
+      {mostrarComoSuperAdmin && (
         <>
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
             Administración
@@ -332,22 +368,26 @@ export default function Sidebar({ isOpen, onClose }) {
         </>
       )}
 
-      {/* REPORTES */}
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-        Análisis
-      </h3>
+      {/* REPORTES - Solo para usuarios normales o superadmin viendo organización */}
+      {(!mostrarComoSuperAdmin || estaViendoOrganizacion) && (
+        <>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
+            Análisis
+          </h3>
 
-      {(isSuperAdmin || tienePermiso("reportes.ver")) && (
-        <NavLink
-          to="/home/reportes"
-          className={({ isActive }) =>
-            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
-              isActive ? "bg-[#22312f] font-semibold" : ""
-            }`
-          }
-        >
-          📈 Reportes
-        </NavLink>
+          {(tienePermiso("reportes.ver") || estaViendoOrganizacion || !isSuperAdmin) && (
+            <NavLink
+              to="/home/reportes"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                  isActive ? "bg-[#22312f] font-semibold" : ""
+                }`
+              }
+            >
+              📈 Reportes
+            </NavLink>
+          )}
+        </>
       )}
       </aside>
     </>

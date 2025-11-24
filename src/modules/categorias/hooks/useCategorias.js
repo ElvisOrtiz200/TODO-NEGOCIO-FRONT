@@ -3,14 +3,15 @@ import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from
 import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useCategorias = () => {
-  const { organizacion } = useOrganizacion();
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadCategorias = async () => {
     try {
       setLoading(true);
-      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
       const data = await getCategorias(idOrganizacion);
       setCategorias(data);
     } catch (err) {
@@ -22,8 +23,9 @@ export const useCategorias = () => {
 
   const addCategoria = async (categoria) => {
     // Agregar idOrganizacion si no está presente
-    if (!categoria.idOrganizacion && organizacion?.idOrganizacion) {
-      categoria.idOrganizacion = organizacion.idOrganizacion;
+    const orgActiva = organizacionVista || organizacion;
+    if (!categoria.idOrganizacion && orgActiva?.idOrganizacion) {
+      categoria.idOrganizacion = orgActiva.idOrganizacion;
     }
     const nueva = await createCategoria(categoria);
     setCategorias([...categorias, nueva]);
@@ -40,10 +42,11 @@ export const useCategorias = () => {
   };
 
   useEffect(() => {
-    if (organizacion?.idOrganizacion) {
+    const orgActiva = organizacionVista || organizacion;
+    if (orgActiva?.idOrganizacion) {
       loadCategorias();
     }
-  }, [organizacion?.idOrganizacion]);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return { categorias, loading, addCategoria, editCategoria, removeCategoria };
 };

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useCategorias } from "../hooks/useCategorias";
 import CategoriaForm from "../components/CategoriaForm";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export default function CategoriasPage() {
   const { categorias, loading, addCategoria, editCategoria, removeCategoria } = useCategorias();
+  const { organizacionVista } = useOrganizacion();
   const [showForm, setShowForm] = useState(false);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
 
@@ -28,10 +30,14 @@ export default function CategoriasPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#2B3E3C]">Gestión de Categorías</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra las categorías de productos
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : (
+              <span>Administra las categorías de productos</span>
+            )}
           </p>
         </div>
-        {!showForm && (
+        {!showForm && !organizacionVista && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -44,8 +50,8 @@ export default function CategoriasPage() {
         )}
       </div>
 
-      {/* FORMULARIO */}
-      {showForm ? (
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-4 mb-6">
           <CategoriaForm
             initialData={selectedCategoria}
@@ -70,7 +76,9 @@ export default function CategoriasPage() {
                   <th className="p-3 text-left">ID</th>
                   <th className="p-3 text-left">Nombre</th>
                   <th className="p-3 text-left">Estado</th>
-                  <th className="p-3 text-center">Acciones</th>
+                  {!organizacionVista && (
+                    <th className="p-3 text-center">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -89,23 +97,25 @@ export default function CategoriasPage() {
                         {cat.estadoCategoria ? "Activo" : "Inactivo"}
                       </span>
                     </td>
-                    <td className="p-3 text-center space-x-3">
-                      <button
-                        onClick={() => {
-                          setSelectedCategoria(cat);
-                          setShowForm(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => removeCategoria(cat.idCategoria)}
-                        className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
+                    {!organizacionVista && (
+                      <td className="p-3 text-center space-x-3">
+                        <button
+                          onClick={() => {
+                            setSelectedCategoria(cat);
+                            setShowForm(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => removeCategoria(cat.idCategoria)}
+                          className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

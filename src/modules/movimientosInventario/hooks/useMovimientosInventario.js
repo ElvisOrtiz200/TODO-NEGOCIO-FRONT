@@ -11,14 +11,15 @@ import { supabase } from "../../../api/supabaseClient";
 import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useMovimientosInventario = () => {
-  const { organizacion } = useOrganizacion();
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadMovimientos = async () => {
     try {
       setLoading(true);
-      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
       const data = await getMovimientosInventario(idOrganizacion);
       setMovimientos(data);
     } catch (err) {
@@ -61,8 +62,9 @@ export const useMovimientosInventario = () => {
       };
       
       // Agregar idOrganizacion desde el contexto si está disponible
-      if (!movimientoData.idOrganizacion && organizacion?.idOrganizacion) {
-        movimientoData.idOrganizacion = organizacion.idOrganizacion;
+      const orgActiva = organizacionVista || organizacion;
+      if (!movimientoData.idOrganizacion && orgActiva?.idOrganizacion) {
+        movimientoData.idOrganizacion = orgActiva.idOrganizacion;
       }
       
       // Crear el movimiento
@@ -101,10 +103,11 @@ export const useMovimientosInventario = () => {
   };
 
   useEffect(() => {
-    if (organizacion?.idOrganizacion) {
+    const orgActiva = organizacionVista || organizacion;
+    if (orgActiva?.idOrganizacion) {
       loadMovimientos();
     }
-  }, [organizacion?.idOrganizacion]);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return {
     movimientos,

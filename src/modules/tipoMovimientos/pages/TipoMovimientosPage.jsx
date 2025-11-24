@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useTipoMovimientos } from "../hooks/useTipoMovimientos";
 import TipoMovimientoForm from "../components/TipoMovimientoForm";
 import { useToast } from "../../../components/ToastContainer";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export default function TipoMovimientosPage() {
   const {
@@ -13,6 +14,7 @@ export default function TipoMovimientosPage() {
     loadTipoMovimientos,
   } = useTipoMovimientos();
   const { success, error: showError } = useToast();
+  const { organizacionVista } = useOrganizacion();
   const [showForm, setShowForm] = useState(false);
   const [selectedTipoMovimiento, setSelectedTipoMovimiento] = useState(null);
   
@@ -87,10 +89,14 @@ export default function TipoMovimientosPage() {
             Gestión de Tipos de Movimiento
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra los tipos de movimiento de inventario
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : (
+              <span>Administra los tipos de movimiento de inventario</span>
+            )}
           </p>
         </div>
-        {!showForm && (
+        {!showForm && !organizacionVista && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -103,8 +109,8 @@ export default function TipoMovimientosPage() {
         )}
       </div>
 
-      {/* FORMULARIO */}
-      {showForm ? (
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-4 mb-6">
           <TipoMovimientoForm
             initialData={selectedTipoMovimiento}
@@ -208,7 +214,9 @@ export default function TipoMovimientosPage() {
                     <th className="p-3 text-left">Naturaleza</th>
                     <th className="p-3 text-left">Fecha Registro</th>
                     <th className="p-3 text-left">Estado</th>
-                    <th className="p-3 text-center">Acciones</th>
+                    {!organizacionVista && (
+                      <th className="p-3 text-center">Acciones</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -231,23 +239,25 @@ export default function TipoMovimientosPage() {
                         {tm.estadoTipoMovimiento ? "Activo" : "Inactivo"}
                       </span>
                     </td>
-                    <td className="p-3 text-center space-x-3">
-                      <button
-                        onClick={() => {
-                          setSelectedTipoMovimiento(tm);
-                          setShowForm(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(tm.idTipoMovimiento, tm.descripcionMovimiento)}
-                        className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
+                    {!organizacionVista && (
+                      <td className="p-3 text-center space-x-3">
+                        <button
+                          onClick={() => {
+                            setSelectedTipoMovimiento(tm);
+                            setShowForm(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tm.idTipoMovimiento, tm.descripcionMovimiento)}
+                          className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -4,7 +4,7 @@ import { usePermissions } from "../../../hooks/usePermissions";
 import { getOrganizaciones } from "../../organizaciones/services/organizacionService";
 
 export default function AlmacenForm({ initialData, onSubmit, onCancel }) {
-  const { organizacion, usuario, loading: loadingOrg } = useOrganizacion();
+  const { organizacion, usuario, loading: loadingOrg, organizacionVista } = useOrganizacion();
   const { isSuperAdmin, roles } = usePermissions();
   const [nombreAlmacen, setNombreAlmacen] = useState("");
   const [ubicacionAlmacen, setUbicacionAlmacen] = useState("");
@@ -13,18 +13,21 @@ export default function AlmacenForm({ initialData, onSubmit, onCancel }) {
   const [loadingOrgs, setLoadingOrgs] = useState(false);
 
   // Determinar si debe mostrar el selector de organización
-  // SOLO se muestra si es superadmin
-  const debeMostrarSelector = isSuperAdmin;
+  // SOLO se muestra si es superadmin Y NO está viendo una organización
+  const estaViendoOrganizacion = organizacionVista !== null;
+  const debeMostrarSelector = isSuperAdmin && !estaViendoOrganizacion;
 
   useEffect(() => {
     if (initialData) {
       setNombreAlmacen(initialData.nombreAlmacen || "");
       setUbicacionAlmacen(initialData.ubicacionAlmacen || "");
       setIdOrganizacion(initialData.idOrganizacion || "");
-    } else if (!isSuperAdmin && !loadingOrg) {
-      // Si no es edición y tiene organización y no es superadmin, usar automáticamente su organización
+    } else if ((!isSuperAdmin || estaViendoOrganizacion) && !loadingOrg) {
+      // Si no es edición y tiene organización (o está viendo una), usar automáticamente su organización
       // Intentar diferentes campos posibles
-      const orgId = organizacion?.idOrganizacion || 
+      const orgActiva = organizacionVista || organizacion;
+      const orgId = orgActiva?.idOrganizacion || 
+                    orgActiva?.organizacionId || 
                     organizacion?.organizacionId || 
                     usuario?.organizacionId ||
                     usuario?.idOrganizacion;
@@ -33,11 +36,11 @@ export default function AlmacenForm({ initialData, onSubmit, onCancel }) {
         setIdOrganizacion(orgId);
       }
     }
-  }, [initialData, organizacion, usuario, isSuperAdmin, loadingOrg]);
+  }, [initialData, organizacion, usuario, isSuperAdmin, loadingOrg, organizacionVista, estaViendoOrganizacion]);
 
   useEffect(() => {
-    // Cargar organizaciones solo si es superadmin
-    if (isSuperAdmin) {
+    // Cargar organizaciones solo si es superadmin Y NO está viendo una organización
+    if (isSuperAdmin && !estaViendoOrganizacion) {
       const loadOrganizaciones = async () => {
         try {
           setLoadingOrgs(true);
@@ -56,31 +59,33 @@ export default function AlmacenForm({ initialData, onSubmit, onCancel }) {
       loadOrganizaciones();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, estaViendoOrganizacion]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     // Determinar el idOrganizacion a usar
     let idOrgFinal;
+    const orgActiva = organizacionVista || organizacion;
     
-    if (isSuperAdmin) {
-      // Si es superadmin, debe usar el idOrganizacion del select
+    if (isSuperAdmin && !estaViendoOrganizacion) {
+      // Si es superadmin y NO está viendo una organización, debe usar el idOrganizacion del select
       idOrgFinal = idOrganizacion;
       if (!idOrgFinal) {
         alert("Debe seleccionar una organización");
         return;
       }
     } else {
-      // Si no es superadmin, usar automáticamente la organización del contexto
+      // Si está viendo una organización o no es superadmin, usar automáticamente la organización activa
       // Primero intentar usar el idOrganizacion del estado (que se estableció en useEffect)
       // Si no está, usar el del contexto
-      idOrgFinal = idOrganizacion || organizacion?.idOrganizacion || organizacion?.organizacionId || usuario?.organizacionId;
+      idOrgFinal = idOrganizacion || orgActiva?.idOrganizacion || orgActiva?.organizacionId || organizacion?.organizacionId || usuario?.organizacionId;
       
       if (!idOrgFinal) {
         console.error("No se encontró organización:", { 
           idOrganizacion, 
           organizacion, 
+          organizacionVista,
           usuario,
           loadingOrg 
         });
@@ -124,10 +129,10 @@ export default function AlmacenForm({ initialData, onSubmit, onCancel }) {
         </div>
       )}
       
-      {!debeMostrarSelector && organizacion?.idOrganizacion && (
+      {!debeMostrarSelector && (organizacionVista || organizacion)?.idOrganizacion && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-sm text-blue-800">
-            <strong>Organización:</strong> {organizacion.nombreOrganizacion || organizacion.idOrganizacion}
+            <strong>Organización:</strong> {(organizacionVista || organizacion)?.nombreOrganizacion || (organizacionVista || organizacion)?.idOrganizacion}
           </p>
         </div>
       )}

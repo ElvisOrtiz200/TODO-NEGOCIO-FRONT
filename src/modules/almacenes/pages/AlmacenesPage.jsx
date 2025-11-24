@@ -3,11 +3,13 @@ import { useAlmacenes } from "../hooks/useAlmacenes";
 import AlmacenForm from "../components/AlmacenForm";
 import { useToast } from "../../../components/ToastContainer";
 import { usePermissions } from "../../../hooks/usePermissions";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 import { getOrganizaciones } from "../../organizaciones/services/organizacionService";
 
 export default function AlmacenesPage() {
   const { almacenes, loading, addAlmacen, editAlmacen, removeAlmacen, loadAlmacenes } = useAlmacenes();
   const { isSuperAdmin } = usePermissions();
+  const { organizacionVista } = useOrganizacion();
   const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedAlmacen, setSelectedAlmacen] = useState(null);
@@ -106,10 +108,14 @@ export default function AlmacenesPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#2B3E3C]">Gestión de Almacenes</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra los almacenes de tu organización
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : (
+              <span>Administra los almacenes de tu organización</span>
+            )}
           </p>
         </div>
-        {!showForm && (
+        {!showForm && !organizacionVista && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -122,8 +128,8 @@ export default function AlmacenesPage() {
         )}
       </div>
 
-      {/* FORMULARIO */}
-      {showForm ? (
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             {selectedAlmacen ? "Editar Almacén" : "Nuevo Almacén"}
@@ -255,11 +261,13 @@ export default function AlmacenesPage() {
                       <th className="p-3 text-left">ID</th>
                       <th className="p-3 text-left">Nombre</th>
                       <th className="p-3 text-left">Ubicación</th>
-                      {isSuperAdmin && (
+                      {isSuperAdmin && !organizacionVista && (
                         <th className="p-3 text-left">Organización</th>
                       )}
                       <th className="p-3 text-left">Estado</th>
-                      <th className="p-3 text-center">Acciones</th>
+                      {!organizacionVista && (
+                        <th className="p-3 text-center">Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -268,7 +276,7 @@ export default function AlmacenesPage() {
                         <td className="p-3">{alm.idAlmacen}</td>
                         <td className="p-3 font-medium">{alm.nombreAlmacen}</td>
                         <td className="p-3 text-gray-600">{alm.ubicacionAlmacen}</td>
-                        {isSuperAdmin && (
+                        {isSuperAdmin && !organizacionVista && (
                           <td className="p-3 text-gray-600">
                             {alm.organizacion?.nombreOrganizacion || "-"}
                           </td>
@@ -284,23 +292,25 @@ export default function AlmacenesPage() {
                             {alm.estadoAlmacen ? "Activo" : "Inactivo"}
                           </span>
                         </td>
-                        <td className="p-3 text-center space-x-3">
-                          <button
-                            onClick={() => {
-                              setSelectedAlmacen(alm);
-                              setShowForm(true);
-                            }}
-                            className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(alm.idAlmacen, alm.nombreAlmacen)}
-                            className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
+                        {!organizacionVista && (
+                          <td className="p-3 text-center space-x-3">
+                            <button
+                              onClick={() => {
+                                setSelectedAlmacen(alm);
+                                setShowForm(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(alm.idAlmacen, alm.nombreAlmacen)}
+                              className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

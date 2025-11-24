@@ -5,16 +5,20 @@ import { useOrganizacion } from "../../../context/OrganizacionContext";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { asignarRolesAUsuario, getRolesByUsuario } from "../services/usuarioRolService";
 import { useToast } from "../../../components/ToastContainer";
+import { actualizarAutorizacionSuperadmin } from "../../organizaciones/services/organizacionService";
 
 export default function UsuariosPage() {
-  const { organizacion } = useOrganizacion();
-  const { isSuperAdmin, loading: permissionsLoading } = usePermissions();
+  const { organizacion, usuario, actualizarOrganizacion, organizacionVista } = useOrganizacion();
+  const { isSuperAdmin, loading: permissionsLoading, tienePermiso } = usePermissions();
   const { success, error: showError, warning } = useToast();
-  // Si es superadmin, pasar null para obtener todos los usuarios
-  const organizacionId = isSuperAdmin ? null : (organizacion?.idOrganizacion || null);
+  // Si el superadmin está viendo una organización, usar esa organización; si no, y es superadmin, null; si no, la organización del usuario
+  const organizacionId = organizacionVista 
+    ? organizacionVista.idOrganizacion 
+    : (isSuperAdmin ? null : (organizacion?.idOrganizacion || null));
   const { usuarios, loading, error, addUsuario, editUsuario, removeUsuario, reload } = useUsuarios(organizacionId);
   const [showForm, setShowForm] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
+  const [actualizandoAutorizacion, setActualizandoAutorizacion] = useState(false);
   
   // Estados para filtros
   const [filtroNombre, setFiltroNombre] = useState("");
@@ -22,6 +26,49 @@ export default function UsuariosPage() {
   const [filtroRol, setFiltroRol] = useState("todos");
   const [filtroOrganizacion, setFiltroOrganizacion] = useState("todos");
   const [filtroEstado, setFiltroEstado] = useState("todos");
+
+  const rolesDelUsuarioActual = useMemo(() => {
+    if (!usuario?.roles) return [];
+    return usuario.roles
+      .filter((ur) => ur.estadoUsuarioRol)
+      .map((ur) => ur.rol?.nombreRol?.toUpperCase())
+      .filter(Boolean);
+  }, [usuario]);
+
+  // Determinar organización activa
+  const orgActiva = organizacionVista || organizacion;
+  const esAdministradorOrg = !isSuperAdmin && rolesDelUsuarioActual.includes("ADMINISTRADOR");
+  const autorizadoSuperadmin = Boolean(orgActiva?.autorizaSuperadminUsuarios);
+  const puedeCrearUsuarios = esAdministradorOrg && tienePermiso("usuarios.crear");
+  const autorizacionActivaDesde = orgActiva?.autorizaSuperadminUsuariosDesde
+    ? new Date(organizacion.autorizaSuperadminUsuariosDesde).toLocaleString()
+    : null;
+
+  const handleToggleAutorizacionSuperadmin = async () => {
+    if (!orgActiva) return;
+
+    try {
+      setActualizandoAutorizacion(true);
+      const nuevoValor = !autorizadoSuperadmin;
+      await actualizarAutorizacionSuperadmin(
+        orgActiva.idOrganizacion,
+        nuevoValor,
+        usuario?.idUsuario || null
+      );
+
+      await actualizarOrganizacion();
+      success(
+        nuevoValor
+          ? "Autorizaste al superadmin para apoyar en la gestión de usuarios."
+          : "Revocaste la autorización del superadmin para gestionar usuarios."
+      );
+    } catch (error) {
+      console.error("Error actualizando autorización del superadmin:", error);
+      showError("No se pudo actualizar la autorización. Intenta nuevamente.");
+    } finally {
+      setActualizandoAutorizacion(false);
+    }
+  };
 
   const handleSubmit = async (usuario) => {
     try {
@@ -155,6 +202,18 @@ export default function UsuariosPage() {
   // Filtrar usuarios
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter((usuario) => {
+      // Si es superadmin y NO está viendo una organización, solo mostrar administradores
+      if (isSuperAdmin && !organizacionVista) {
+        const tieneRolAdministrador = usuario.roles?.some(ur => 
+          ur.estadoUsuarioRol && 
+          (ur.rol?.nombreRol?.toUpperCase() === "ADMINISTRADOR" || ur.rol?.nombreRol?.toUpperCase() === "ADMIN")
+        ) || usuario.rol?.nombreRol?.toUpperCase() === "ADMINISTRADOR" || usuario.rol?.nombreRol?.toUpperCase() === "ADMIN";
+        
+        if (!tieneRolAdministrador) {
+          return false;
+        }
+      }
+      
       const coincideNombre = filtroNombre === "" || 
         usuario.nombreUsuario?.toLowerCase().includes(filtroNombre.toLowerCase());
       const coincideEmail = filtroEmail === "" || 
@@ -175,13 +234,13 @@ export default function UsuariosPage() {
         }
       }
       
-      // Filtro por organización (solo para superadmin)
-      const coincideOrganizacion = !isSuperAdmin || filtroOrganizacion === "todos" || 
+      // Filtro por organización (solo para superadmin cuando NO está viendo una organización)
+      const coincideOrganizacion = !isSuperAdmin || organizacionVista || filtroOrganizacion === "todos" || 
         usuario.organizacion?.nombreOrganizacion === filtroOrganizacion;
       
       return coincideNombre && coincideEmail && coincideRol && coincideOrganizacion && coincideEstado;
     });
-  }, [usuarios, filtroNombre, filtroEmail, filtroRol, filtroOrganizacion, filtroEstado, isSuperAdmin]);
+  }, [usuarios, filtroNombre, filtroEmail, filtroRol, filtroOrganizacion, filtroEstado, isSuperAdmin, organizacionVista]);
 
   const limpiarFiltros = () => {
     setFiltroNombre("");
@@ -206,8 +265,8 @@ export default function UsuariosPage() {
     );
   }
 
-  // Si no es superadmin y no tiene organización, mostrar mensaje
-  if (!isSuperAdmin && !organizacion) {
+  // Si no es superadmin y no tiene organización (ni está viendo una), mostrar mensaje
+  if (!isSuperAdmin && !orgActiva) {
     return (
       <div className="p-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
@@ -226,14 +285,16 @@ export default function UsuariosPage() {
             Gestión de Usuarios
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {isSuperAdmin ? (
-              <span>Superadmin - Todos los usuarios del sistema</span>
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : isSuperAdmin ? (
+              <span>Superadmin - Solo Administradores de organizaciones</span>
             ) : (
               <span>Organización: {organizacion?.nombreOrganizacion}</span>
             )}
           </p>
         </div>
-        {!showForm && (
+        {!showForm && puedeCrearUsuarios && !organizacionVista && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -252,8 +313,60 @@ export default function UsuariosPage() {
         </div>
       )}
 
-      {/* FORMULARIO */}
-      {showForm ? (
+      {isSuperAdmin && !organizacionVista && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
+          A partir de ahora los administradores de cada organización son quienes crean usuarios y asignan roles.
+          Solo podrás intervenir si el administrador te otorga autorización explícita desde su organización.
+        </div>
+      )}
+
+      {esAdministradorOrg && !organizacionVista && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#2B3E3C]">
+                Autoriza al superadmin para apoyar en tu organización
+              </p>
+              <p className="text-sm text-gray-600">
+                {autorizadoSuperadmin
+                  ? "Actualmente el superadmin puede crear usuarios o asignar roles en tu organización."
+                  : "Por defecto solo los administradores pueden crear usuarios. Puedes habilitar temporalmente al superadmin si necesitas soporte."}
+              </p>
+              {autorizadoSuperadmin && autorizacionActivaDesde && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Autorización activa desde: {autorizacionActivaDesde}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleAutorizacionSuperadmin}
+              disabled={actualizandoAutorizacion}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                autorizadoSuperadmin
+                  ? "bg-red-100 text-red-700 hover:bg-red-200"
+                  : "bg-[#2B3E3C] text-white hover:bg-[#22312f]"
+              } disabled:opacity-60`}
+            >
+              {actualizandoAutorizacion
+                ? "Guardando..."
+                : autorizadoSuperadmin
+                  ? "Revocar autorización"
+                  : "Autorizar al superadmin"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isSuperAdmin && !esAdministradorOrg && orgActiva && !organizacionVista && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+          Solo los usuarios con rol Administrador pueden crear o asignar usuarios dentro de la organización.
+          Comunícate con tu Administrador si necesitas cambios.
+        </div>
+      )}
+
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             {selectedUsuario ? "Editar Usuario" : "Nuevo Usuario"}
@@ -265,7 +378,8 @@ export default function UsuariosPage() {
               setShowForm(false);
               setSelectedUsuario(null);
             }}
-            organizacionId={organizacion?.idOrganizacion || null}
+            organizacionId={(organizacionVista || organizacion)?.idOrganizacion || null}
+            organizacionNombre={(organizacionVista || organizacion)?.nombreOrganizacion || ""}
           />
         </div>
       ) : (
@@ -284,7 +398,7 @@ export default function UsuariosPage() {
               )}
             </div>
             
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${(isSuperAdmin && !organizacionVista) ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
               {/* Filtro por Nombre */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -330,8 +444,8 @@ export default function UsuariosPage() {
                 </select>
               </div>
 
-              {/* Filtro por Organización (solo superadmin) */}
-              {isSuperAdmin && (
+              {/* Filtro por Organización (solo superadmin cuando NO está viendo una organización) */}
+              {isSuperAdmin && !organizacionVista && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     🏢 Organización
@@ -388,8 +502,8 @@ export default function UsuariosPage() {
               <p>
                 {tieneFiltrosActivos 
                   ? "No se encontraron usuarios con los filtros aplicados." 
-                  : isSuperAdmin 
-                    ? "No hay usuarios registrados en el sistema." 
+                  : (isSuperAdmin && !organizacionVista)
+                    ? "No hay administradores registrados en el sistema." 
                     : "No hay usuarios registrados en esta organización."}
               </p>
             </div>
@@ -405,7 +519,9 @@ export default function UsuariosPage() {
                     <th className="p-3 text-left">Rol</th>
                     <th className="p-3 text-left">Organización</th>
                     <th className="p-3 text-left">Estado</th>
-                    <th className="p-3 text-center">Acciones</th>
+                    {!organizacionVista && (
+                      <th className="p-3 text-center">Acciones</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -451,27 +567,29 @@ export default function UsuariosPage() {
                           {usuario.estadoUsuario ? "Activo" : "Inactivo"}
                         </span>
                       </td>
-                      <td className="p-3 text-center space-x-3">
-                        <button
-                          onClick={() => {
-                            setSelectedUsuario(usuario);
-                            setShowForm(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`¿Estás seguro de eliminar al usuario "${usuario.nombreUsuario}"?`)) {
-                              removeUsuario(usuario.idUsuario);
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                        >
-                          Eliminar
-                        </button>
-                      </td>
+                      {!organizacionVista && (
+                        <td className="p-3 text-center space-x-3">
+                          <button
+                            onClick={() => {
+                              setSelectedUsuario(usuario);
+                              setShowForm(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`¿Estás seguro de eliminar al usuario "${usuario.nombreUsuario}"?`)) {
+                                removeUsuario(usuario.idUsuario);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

@@ -8,14 +8,15 @@ import {
 import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useProveedores = () => {
-  const { organizacion } = useOrganizacion();
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadProveedores = async () => {
     try {
       setLoading(true);
-      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
       const data = await getProveedores(idOrganizacion);
       setProveedores(data);
     } catch (err) {
@@ -27,8 +28,9 @@ export const useProveedores = () => {
 
   const addProveedor = async (proveedor) => {
     // Agregar idOrganizacion si no está presente
-    if (!proveedor.idOrganizacion && organizacion?.idOrganizacion) {
-      proveedor.idOrganizacion = organizacion.idOrganizacion;
+    const orgActiva = organizacionVista || organizacion;
+    if (!proveedor.idOrganizacion && orgActiva?.idOrganizacion) {
+      proveedor.idOrganizacion = orgActiva.idOrganizacion;
     }
     const nuevo = await createProveedor(proveedor);
     setProveedores([...proveedores, nuevo]);
@@ -49,10 +51,11 @@ export const useProveedores = () => {
   };
 
   useEffect(() => {
-    if (organizacion?.idOrganizacion) {
+    const orgActiva = organizacionVista || organizacion;
+    if (orgActiva?.idOrganizacion) {
       loadProveedores();
     }
-  }, [organizacion?.idOrganizacion]);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return { proveedores, loading, addProveedor, editProveedor, removeProveedor };
 };

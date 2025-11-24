@@ -4,7 +4,7 @@ import { useOrganizacion } from "../../../context/OrganizacionContext";
 import { usePermissions } from "../../../hooks/usePermissions";
 
 export const useAlmacenes = () => {
-  const { organizacion } = useOrganizacion();
+  const { organizacion, organizacionVista } = useOrganizacion();
   const { isSuperAdmin } = usePermissions();
   const [almacenes, setAlmacenes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,9 +12,11 @@ export const useAlmacenes = () => {
   const loadAlmacenes = async (includeOrganizacion = null) => {
     try {
       setLoading(true);
-      const idOrganizacion = organizacion?.idOrganizacion || null;
-      // Si includeOrganizacion es null, usar isSuperAdmin para decidir
-      const shouldIncludeOrg = includeOrganizacion !== null ? includeOrganizacion : isSuperAdmin;
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
+      // Si includeOrganizacion es null, usar isSuperAdmin para decidir (solo si no está viendo una organización)
+      const estaViendoOrg = organizacionVista !== null;
+      const shouldIncludeOrg = includeOrganizacion !== null ? includeOrganizacion : (isSuperAdmin && !estaViendoOrg);
       const data = await getAlmacenes(idOrganizacion, shouldIncludeOrg);
       setAlmacenes(data);
     } catch (err) {
@@ -26,8 +28,9 @@ export const useAlmacenes = () => {
 
   const addAlmacen = async (almacen) => {
     // Agregar idOrganizacion si no está presente y hay organización en el contexto
-    if (!almacen.idOrganizacion && organizacion?.idOrganizacion) {
-      almacen.idOrganizacion = organizacion.idOrganizacion;
+    const orgActiva = organizacionVista || organizacion;
+    if (!almacen.idOrganizacion && orgActiva?.idOrganizacion) {
+      almacen.idOrganizacion = orgActiva.idOrganizacion;
     }
     // Validar que tenga idOrganizacion
     if (!almacen.idOrganizacion) {
@@ -48,12 +51,13 @@ export const useAlmacenes = () => {
   };
 
   useEffect(() => {
-    // Cargar almacenes si hay organización o si es superadmin (carga todos)
-    if (organizacion?.idOrganizacion || !organizacion || isSuperAdmin) {
+    // Cargar almacenes si hay organización activa (organizacionVista o organizacion)
+    const orgActiva = organizacionVista || organizacion;
+    if (orgActiva?.idOrganizacion || (isSuperAdmin && !organizacionVista)) {
       loadAlmacenes();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizacion?.idOrganizacion, isSuperAdmin]);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion, isSuperAdmin]);
 
   return { almacenes, loading, addAlmacen, editAlmacen, removeAlmacen, loadAlmacenes };
 };

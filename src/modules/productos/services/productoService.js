@@ -3,6 +3,8 @@ import { supabase } from "../../../api/supabaseClient";
 const TABLE = "PRODUCTO";
 
 export const getProductos = async (idOrganizacion = null) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const orgId = idOrganizacion ? String(idOrganizacion) : null;
   let query = supabase
     .from(TABLE)
     .select(`
@@ -13,8 +15,8 @@ export const getProductos = async (idOrganizacion = null) => {
     .eq("estadoProducto", true);
   
   // Filtrar por organización si se proporciona
-  if (idOrganizacion) {
-    query = query.eq("idOrganizacion", idOrganizacion);
+  if (orgId) {
+    query = query.eq("idOrganizacion", orgId);
   }
   
   const { data, error } = await query.order("idProducto", { ascending: true });

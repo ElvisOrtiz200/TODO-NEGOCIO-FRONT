@@ -9,20 +9,21 @@ const TABLE = "USUARIO";
 export const getUsuarios = async (organizacionId = null) => {
   // Siempre usar LEFT JOIN para obtener usuarios con o sin roles
   // Luego filtrar en memoria según sea necesario
+  // Asegurar que organizacionId sea string para comparaciones UUID
+  const orgId = organizacionId ? String(organizacionId) : null;
   let query = supabase
     .from(TABLE)
     .select(`
       *,
-      organizacion:ORGANIZACION(*),
+      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*),
       roles:USUARIOROL(
         estadoUsuarioRol,
         rol:ROL(*)
       )
     `)
     .eq("estadoUsuario", true);
-
-  if (organizacionId) {
-    query = query.eq("organizacionId", organizacionId);
+  if (orgId) {
+    query = query.eq("organizacionId", orgId);
   }
 
   const { data, error } = await query.order("nombreUsuario", { ascending: true });
@@ -86,7 +87,7 @@ export const getUsuarioById = async (idUsuario) => {
     .from(TABLE)
     .select(`
       *,
-      organizacion:ORGANIZACION(*),
+      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*),
       roles:USUARIOROL(
         estadoUsuarioRol,
         rol:ROL(*)
@@ -114,7 +115,7 @@ export const getUsuarioByAuthId = async (authUserId) => {
     .from(TABLE)
     .select(`
       *,
-      organizacion:ORGANIZACION(*),
+      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*),
       roles:USUARIOROL(
         estadoUsuarioRol,
         rol:ROL(*)
@@ -297,9 +298,11 @@ export const getUsuariosSinOrganizacion = async () => {
  * Asigna un usuario a una organización
  */
 export const asignarUsuarioAOrganizacion = async (idUsuario, idOrganizacion) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const idOrg = idOrganizacion ? String(idOrganizacion) : null;
   const { data, error } = await supabase
     .from(TABLE)
-    .update({ organizacionId: idOrganizacion })
+    .update({ organizacionId: idOrg })
     .eq("idUsuario", idUsuario)
     .select()
     .single();

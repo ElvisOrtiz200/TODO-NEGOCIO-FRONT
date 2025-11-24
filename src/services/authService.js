@@ -11,18 +11,32 @@ import { supabase } from "../api/supabaseClient";
 export const getUsuarioSistema = async (authUserId) => {
   try {
     // Primero obtener el usuario básico
-    const { data: usuarioData, error: usuarioError } = await supabase
+    const { data: usuarioBase, error: usuarioError } = await supabase
       .from("USUARIO")
-      .select(`
-        *,
-        organizacion:ORGANIZACION(*)
-      `)
+      .select("*")
       .eq("authUserId", authUserId)
       .eq("estadoUsuario", true)
-      .single();
+      .maybeSingle();
 
     if (usuarioError && usuarioError.code !== "PGRST116") throw usuarioError;
-    if (!usuarioData) return null;
+    if (!usuarioBase) return null;
+
+    let organizacionData = null;
+    if (usuarioBase.organizacionId) {
+      // Asegurar que organizacionId sea string para comparaciones UUID
+      const orgId = String(usuarioBase.organizacionId);
+      const { data: orgData, error: orgError } = await supabase
+        .from("ORGANIZACION")
+        .select("*")
+        .eq("idOrganizacion", orgId)
+        .maybeSingle();
+
+      if (!orgError) {
+        organizacionData = orgData;
+      } else if (orgError.code !== "PGRST116") {
+        console.warn("Error obteniendo organización:", orgError);
+      }
+    }
 
     // Luego obtener los roles por separado para evitar problemas con RLS
     const { data: rolesData, error: rolesError } = await supabase
@@ -31,7 +45,7 @@ export const getUsuarioSistema = async (authUserId) => {
         estadoUsuarioRol,
         rol:ROL(*)
       `)
-      .eq("idUsuario", usuarioData.idUsuario)
+      .eq("idUsuario", usuarioBase.idUsuario)
       .eq("estadoUsuarioRol", true);
 
     // Si hay error con roles, solo loguear pero continuar
@@ -46,7 +60,11 @@ export const getUsuarioSistema = async (authUserId) => {
     }
 
     // Agregar roles al objeto usuario
-    usuarioData.roles = roles;
+    const usuarioData = {
+      ...usuarioBase,
+      organizacion: organizacionData,
+      roles,
+    };
     
     // Si hay roles, tomar el primero como rol principal (para compatibilidad)
     if (roles.length > 0) {
@@ -156,11 +174,13 @@ export const validarMembresiaOrganizacion = async (authUserId) => {
  */
 export const crearUsuarioSistema = async (authUser, organizacionId = null, rolId = null) => {
   try {
+    // Asegurar que organizacionId sea string para comparaciones UUID
+    const orgId = organizacionId ? String(organizacionId) : null;
     const nuevoUsuario = {
       authUserId: authUser.id || authUser,
       email: authUser.email || authUser,
       nombreUsuario: authUser.nombreUsuario || authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "Usuario",
-      organizacionId: organizacionId,
+      organizacionId: orgId,
       rolId: rolId,
       estadoUsuario: true,
       fechaCreacion: new Date().toISOString()
@@ -212,9 +232,11 @@ export const getOrganizacionActual = async () => {
  */
 export const vincularUsuarioAOrganizacion = async (authUserId, organizacionId) => {
   try {
+    // Asegurar que organizacionId sea string para comparaciones UUID
+    const orgId = organizacionId ? String(organizacionId) : null;
     const { data, error } = await supabase
       .from("USUARIO")
-      .update({ organizacionId: organizacionId })
+      .update({ organizacionId: orgId })
       .eq("authUserId", authUserId)
       .select(`
         *,

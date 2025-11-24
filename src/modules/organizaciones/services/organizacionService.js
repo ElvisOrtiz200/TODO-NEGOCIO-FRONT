@@ -23,13 +23,15 @@ export const getOrganizaciones = async () => {
  * Obtiene una organización por ID
  */
 export const getOrganizacionById = async (idOrganizacion) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const idOrg = idOrganizacion ? String(idOrganizacion) : null;
   const { data, error } = await supabase
     .from(TABLE)
     .select(`
       *,
       plan:PLAN(*)
     `)
-    .eq("idOrganizacion", idOrganizacion)
+    .eq("idOrganizacion", idOrg)
     .single();
   if (error) throw error;
   return data;
@@ -68,10 +70,12 @@ export const createOrganizacion = async (organizacion) => {
  * Actualiza una organización
  */
 export const updateOrganizacion = async (idOrganizacion, organizacion) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const idOrg = idOrganizacion ? String(idOrganizacion) : null;
   const { data, error } = await supabase
     .from(TABLE)
     .update(organizacion)
-    .eq("idOrganizacion", idOrganizacion)
+    .eq("idOrganizacion", idOrg)
     .select()
     .single();
   
@@ -83,10 +87,12 @@ export const updateOrganizacion = async (idOrganizacion, organizacion) => {
  * Elimina (desactiva) una organización
  */
 export const deleteOrganizacion = async (idOrganizacion) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const idOrg = idOrganizacion ? String(idOrganizacion) : null;
   const { error } = await supabase
     .from(TABLE)
     .update({ estadoOrganizacion: false })
-    .eq("idOrganizacion", idOrganizacion);
+    .eq("idOrganizacion", idOrg);
   
   if (error) throw error;
 };
@@ -95,14 +101,31 @@ export const deleteOrganizacion = async (idOrganizacion) => {
  * Obtiene los usuarios de una organización
  */
 export const getUsuariosOrganizacion = async (idOrganizacion) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const idOrg = idOrganizacion ? String(idOrganizacion) : null;
   const { data, error } = await supabase
     .from("USUARIO")
     .select("*")
-    .eq("organizacionId", idOrganizacion)
+    .eq("organizacionId", idOrg)
     .eq("estadoUsuario", true)
     .order("nombreUsuario", { ascending: true });
   
   if (error) throw error;
   return data;
+};
+
+/**
+ * Actualiza la autorización para que el superadmin gestione usuarios de una organización
+ */
+export const actualizarAutorizacionSuperadmin = async (idOrganizacion, autorizado, autorizadoPor = null) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const idOrg = idOrganizacion ? String(idOrganizacion) : null;
+  const payload = {
+    autorizaSuperadminUsuarios: autorizado,
+    autorizaSuperadminUsuariosDesde: autorizado ? new Date().toISOString() : null,
+    autorizaSuperadminUsuariosPor: autorizado ? autorizadoPor : null,
+  };
+
+  return await updateOrganizacion(idOrg, payload);
 };
 

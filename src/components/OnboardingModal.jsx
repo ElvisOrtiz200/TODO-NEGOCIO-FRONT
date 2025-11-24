@@ -22,7 +22,7 @@ export default function OnboardingModal({ onComplete }) {
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="text-center mb-4">
           <div className="inline-block w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">

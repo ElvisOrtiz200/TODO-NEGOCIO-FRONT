@@ -4,12 +4,14 @@ import { useClientes } from "../hooks/useClientes";
 import ClienteForm from "../components/ClienteForm";
 import { useToast } from "../../../components/ToastContainer";
 import { usePermissions } from "../../../hooks/usePermissions";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 import PermisoGuard from "../../../components/PermisoGuard";
 
 export default function ClientesPage() {
   const { clientes, loading, addCliente, editCliente, removeCliente, loadClientes } = useClientes();
   const { success, error: showError, warning } = useToast();
   const { isSuperAdmin, tienePermiso, loading: permissionsLoading } = usePermissions();
+  const { organizacionVista } = useOrganizacion();
   const [showForm, setShowForm] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   
@@ -112,10 +114,14 @@ export default function ClientesPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#2B3E3C]">Gestión de Clientes</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra la información de tus clientes
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : (
+              <span>Administra la información de tus clientes</span>
+            )}
           </p>
         </div>
-        {!showForm && puedeCrear && (
+        {!showForm && puedeCrear && !organizacionVista && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -128,8 +134,8 @@ export default function ClientesPage() {
         )}
       </div>
 
-      {/* FORMULARIO */}
-      {showForm && puedeCrear ? (
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && puedeCrear && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             {selectedCliente ? "Editar Cliente" : "Nuevo Cliente"}
@@ -270,7 +276,9 @@ export default function ClientesPage() {
                       <th className="p-3 text-left">Teléfono</th>
                       <th className="p-3 text-left">Dirección</th>
                       <th className="p-3 text-left">Estado</th>
-                      <th className="p-3 text-center">Acciones</th>
+                      {!organizacionVista && (
+                        <th className="p-3 text-center">Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -295,40 +303,42 @@ export default function ClientesPage() {
                             {cliente.estadoCliente ? "Activo" : "Inactivo"}
                           </span>
                         </td>
-                        <td className="p-3 text-center space-x-3">
-                          {puedeEditar && (
-                            <button
-                              onClick={() => {
-                                setSelectedCliente(cliente);
-                                setShowForm(true);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                            >
-                              Editar
-                            </button>
-                          )}
-                          {puedeEliminar && (
-                            <button
-                              onClick={async () => {
-                                if (window.confirm(`¿Estás seguro de eliminar el cliente "${cliente.nombreCliente} ${cliente.apellidoCliente || ""}"?`)) {
-                                  try {
-                                    await removeCliente(cliente.idCliente);
-                                    await loadClientes();
-                                    success("Cliente eliminado exitosamente");
-                                  } catch (error) {
-                                    showError("Error al eliminar el cliente");
+                        {!organizacionVista && (
+                          <td className="p-3 text-center space-x-3">
+                            {puedeEditar && (
+                              <button
+                                onClick={() => {
+                                  setSelectedCliente(cliente);
+                                  setShowForm(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {puedeEliminar && (
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(`¿Estás seguro de eliminar el cliente "${cliente.nombreCliente} ${cliente.apellidoCliente || ""}"?`)) {
+                                    try {
+                                      await removeCliente(cliente.idCliente);
+                                      await loadClientes();
+                                      success("Cliente eliminado exitosamente");
+                                    } catch (error) {
+                                      showError("Error al eliminar el cliente");
+                                    }
                                   }
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                            >
-                              Eliminar
-                            </button>
-                          )}
-                          {!puedeEditar && !puedeEliminar && (
-                            <span className="text-gray-400 text-sm">Solo lectura</span>
-                          )}
-                        </td>
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                            {!puedeEditar && !puedeEliminar && (
+                              <span className="text-gray-400 text-sm">Solo lectura</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
