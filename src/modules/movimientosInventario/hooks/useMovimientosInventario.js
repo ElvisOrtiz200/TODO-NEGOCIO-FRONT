@@ -4,18 +4,22 @@ import {
   createMovimientoInventario,
   getMovimientosPorProducto,
   getMovimientosPorFecha,
+  getMovimientosPorTipoMovimiento,
 } from "../services/movimientoInventarioService";
 import { actualizarStock } from "../../inventario/services/inventarioService";
 import { supabase } from "../../../api/supabaseClient";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useMovimientosInventario = () => {
+  const { organizacion } = useOrganizacion();
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadMovimientos = async () => {
     try {
       setLoading(true);
-      const data = await getMovimientosInventario();
+      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const data = await getMovimientosInventario(idOrganizacion);
       setMovimientos(data);
     } catch (err) {
       console.error("Error al cargar movimientos:", err.message);
@@ -48,13 +52,21 @@ export const useMovimientosInventario = () => {
         nuevoStock -= movimiento.cantidad;
       }
 
-      // Crear el movimiento
-      const nuevoMovimiento = await createMovimientoInventario({
+      // Agregar idOrganizacion si no está presente
+      const movimientoData = {
         ...movimiento,
         stockAnterior: producto.stockActual || 0,
         stockNuevo: nuevoStock,
         fechaMovimiento: new Date().toISOString(),
-      });
+      };
+      
+      // Agregar idOrganizacion desde el contexto si está disponible
+      if (!movimientoData.idOrganizacion && organizacion?.idOrganizacion) {
+        movimientoData.idOrganizacion = organizacion.idOrganizacion;
+      }
+      
+      // Crear el movimiento
+      const nuevoMovimiento = await createMovimientoInventario(movimientoData);
 
       // Actualizar stock del producto
       await actualizarStock(movimiento.idProducto, nuevoStock);
@@ -75,9 +87,24 @@ export const useMovimientosInventario = () => {
     return await getMovimientosPorFecha(fechaInicio, fechaFin);
   };
 
+  const getMovimientosTipoMovimiento = async (idTipoMovimiento) => {
+    return await getMovimientosPorTipoMovimiento(idTipoMovimiento);
+  };
+
+  const filterMovimientosByTipo = (idTipoMovimiento) => {
+    if (!idTipoMovimiento || idTipoMovimiento === "") {
+      return movimientos;
+    }
+    return movimientos.filter(
+      (mov) => mov.idTipoMovimiento === parseInt(idTipoMovimiento)
+    );
+  };
+
   useEffect(() => {
-    loadMovimientos();
-  }, []);
+    if (organizacion?.idOrganizacion) {
+      loadMovimientos();
+    }
+  }, [organizacion?.idOrganizacion]);
 
   return {
     movimientos,
@@ -85,6 +112,8 @@ export const useMovimientosInventario = () => {
     addMovimiento,
     getMovimientosProducto,
     getMovimientosFecha,
+    getMovimientosTipoMovimiento,
+    filterMovimientosByTipo,
     loadMovimientos,
   };
 };

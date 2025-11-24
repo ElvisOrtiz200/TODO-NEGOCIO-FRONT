@@ -65,7 +65,7 @@ export default function MovimientoInventarioForm({ initialData, onSubmit, onCanc
             className="w-full border p-2 rounded-lg"
           >
             <option value="">Seleccione...</option>
-            {tipoMovimientos?.filter(tm => tm.estadoMovimiento).map((tipo) => (
+            {tipoMovimientos?.filter(tm => tm.estadoTipoMovimiento).map((tipo) => (
               <option key={tipo.idTipoMovimiento} value={tipo.idTipoMovimiento}>
                 {tipo.descripcionMovimiento} ({tipo.naturaleza})
               </option>

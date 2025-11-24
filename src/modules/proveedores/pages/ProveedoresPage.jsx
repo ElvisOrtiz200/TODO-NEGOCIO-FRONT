@@ -25,16 +25,21 @@ export default function ProveedorPage() {
     <div className="p-6">
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-[#2B3E3C]">
-          Gestión de Proveedores
-        </h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-[#2B3E3C]">
+            Gestión de Proveedores
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Administra la información de tus proveedores
+          </p>
+        </div>
         {!showForm && (
           <button
             onClick={() => {
               setShowForm(true);
               setSelectedProveedor(null);
             }}
-            className="bg-[#2B3E3C] text-white px-4 py-2 rounded-lg hover:bg-[#22312f]"
+            className="bg-[#2B3E3C] text-white px-4 py-2 rounded-lg hover:bg-[#22312f] transition-colors"
           >
             + Nuevo Proveedor
           </button>
@@ -64,20 +69,20 @@ export default function ProveedorPage() {
             <table className="w-full">
               <thead className="bg-[#2B3E3C] text-white">
                 <tr>
-                  <th className="p-2 text-left">ID</th>
-                  <th className="p-2 text-left">Nombre</th>
-                  <th className="p-2 text-left">Teléfono</th>
-                  <th className="p-2 text-left">Estado</th>
-                  <th className="p-2 text-center">Acciones</th>
+                  <th className="p-3 text-left">ID</th>
+                  <th className="p-3 text-left">Nombre</th>
+                  <th className="p-3 text-left">Teléfono</th>
+                  <th className="p-3 text-left">Estado</th>
+                  <th className="p-3 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {proveedores.map((p) => (
-                  <tr key={p.idProveedor} className="border-b hover:bg-gray-50">
-                    <td className="p-2">{p.idProveedor}</td>
-                    <td className="p-2">{p.nombreProveedor}</td>
-                    <td className="p-2">{p.telefonoProveedor}</td>
-                    <td className="p-2">
+                  <tr key={p.idProveedor} className="border-b hover:bg-gray-50 transition-colors">
+                    <td className="p-3">{p.idProveedor}</td>
+                    <td className="p-3 font-medium">{p.nombreProveedor}</td>
+                    <td className="p-3 text-gray-600">{p.telefonoProveedor}</td>
+                    <td className="p-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${
                           p.estadoProveedor
@@ -88,19 +93,19 @@ export default function ProveedorPage() {
                         {p.estadoProveedor ? "Activo" : "Inactivo"}
                       </span>
                     </td>
-                    <td className="p-2 text-center space-x-3">
+                    <td className="p-3 text-center space-x-3">
                       <button
                         onClick={() => {
                           setSelectedProveedor(p);
                           setShowForm(true);
                         }}
-                        className="text-blue-500 hover:underline"
+                        className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => removeProveedor(p.idProveedor)}
-                        className="text-red-500 hover:underline"
+                        className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
                       >
                         Eliminar
                       </button>

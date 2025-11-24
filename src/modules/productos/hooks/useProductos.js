@@ -5,15 +5,18 @@ import {
   updateProducto,
   deleteProducto,
 } from "../services/productoService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useProductos = () => {
+  const { organizacion } = useOrganizacion();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadProductos = async () => {
     try {
       setLoading(true);
-      const data = await getProductos();
+      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const data = await getProductos(idOrganizacion);
       setProductos(data);
     } catch (err) {
       console.error("Error al cargar productos:", err.message);
@@ -24,6 +27,10 @@ export const useProductos = () => {
 
   const addProducto = async (producto) => {
     try {
+      // Agregar idOrganizacion si no está presente
+      if (!producto.idOrganizacion && organizacion?.idOrganizacion) {
+        producto.idOrganizacion = organizacion.idOrganizacion;
+      }
       console.log("📝 Creando producto con datos:", producto);
       const nuevo = await createProducto(producto);
       console.log("✅ Producto creado exitosamente:", nuevo);
@@ -63,8 +70,10 @@ export const useProductos = () => {
   };
 
   useEffect(() => {
-    loadProductos();
-  }, []);
+    if (organizacion?.idOrganizacion) {
+      loadProductos();
+    }
+  }, [organizacion?.idOrganizacion]);
 
   return { productos, loading, addProducto, editProducto, removeProducto, loadProductos };
 };

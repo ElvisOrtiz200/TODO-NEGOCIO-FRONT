@@ -5,15 +5,18 @@ import {
   updateProveedor,
   deleteProveedor,
 } from "../services/proveedorService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useProveedores = () => {
+  const { organizacion } = useOrganizacion();
   const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadProveedores = async () => {
     try {
       setLoading(true);
-      const data = await getProveedores();
+      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const data = await getProveedores(idOrganizacion);
       setProveedores(data);
     } catch (err) {
       console.error("Error al cargar proveedores:", err.message);
@@ -23,6 +26,10 @@ export const useProveedores = () => {
   };
 
   const addProveedor = async (proveedor) => {
+    // Agregar idOrganizacion si no está presente
+    if (!proveedor.idOrganizacion && organizacion?.idOrganizacion) {
+      proveedor.idOrganizacion = organizacion.idOrganizacion;
+    }
     const nuevo = await createProveedor(proveedor);
     setProveedores([...proveedores, nuevo]);
   };
@@ -42,8 +49,10 @@ export const useProveedores = () => {
   };
 
   useEffect(() => {
-    loadProveedores();
-  }, []);
+    if (organizacion?.idOrganizacion) {
+      loadProveedores();
+    }
+  }, [organizacion?.idOrganizacion]);
 
   return { proveedores, loading, addProveedor, editProveedor, removeProveedor };
 };

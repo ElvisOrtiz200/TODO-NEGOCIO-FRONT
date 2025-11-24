@@ -1,6 +1,6 @@
 import { supabase } from "../../../api/supabaseClient";
 
-const TABLE = "TIPOMOVIMIENTOS";
+const TABLE = "TIPOMOVIMIENTO";
 
 export const getTipoMovimientos = async () => {
   const { data, error } = await supabase
@@ -31,7 +31,7 @@ export const updateTipoMovimiento = async (idTipoMovimiento, tipoMovimiento) => 
 export const deleteTipoMovimiento = async (idTipoMovimiento) => {
   const { error } = await supabase
     .from(TABLE)
-    .update({ estadoMovimiento: false })
+    .update({ estadoTipoMovimiento: false })
     .eq("idTipoMovimiento", idTipoMovimiento);
   if (error) throw error;
 };

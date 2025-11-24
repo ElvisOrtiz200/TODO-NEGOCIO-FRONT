@@ -53,5 +53,6 @@ export const useTipoMovimientos = () => {
     addTipoMovimiento,
     editTipoMovimiento,
     removeTipoMovimiento,
+    loadTipoMovimientos,
   };
 };

@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
 import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from "../services/categoriaService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useCategorias = () => {
+  const { organizacion } = useOrganizacion();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadCategorias = async () => {
     try {
       setLoading(true);
-      const data = await getCategorias();
+      const idOrganizacion = organizacion?.idOrganizacion || null;
+      const data = await getCategorias(idOrganizacion);
       setCategorias(data);
     } catch (err) {
       console.error("Error al cargar categorías:", err.message);
@@ -18,6 +21,10 @@ export const useCategorias = () => {
   };
 
   const addCategoria = async (categoria) => {
+    // Agregar idOrganizacion si no está presente
+    if (!categoria.idOrganizacion && organizacion?.idOrganizacion) {
+      categoria.idOrganizacion = organizacion.idOrganizacion;
+    }
     const nueva = await createCategoria(categoria);
     setCategorias([...categorias, nueva]);
   };
@@ -33,8 +40,10 @@ export const useCategorias = () => {
   };
 
   useEffect(() => {
-    loadCategorias();
-  }, []);
+    if (organizacion?.idOrganizacion) {
+      loadCategorias();
+    }
+  }, [organizacion?.idOrganizacion]);
 
   return { categorias, loading, addCategoria, editCategoria, removeCategoria };
 };

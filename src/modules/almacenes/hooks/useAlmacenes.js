@@ -1,14 +1,21 @@
 import { useState, useEffect } from "react";
 import { getAlmacenes, createAlmacen, updateAlmacen, deleteAlmacen } from "../services/almacenService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 export const useAlmacenes = () => {
+  const { organizacion } = useOrganizacion();
+  const { isSuperAdmin } = usePermissions();
   const [almacenes, setAlmacenes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadAlmacenes = async () => {
+  const loadAlmacenes = async (includeOrganizacion = null) => {
     try {
       setLoading(true);
-      const data = await getAlmacenes();
+      const idOrganizacion = organizacion?.idOrganizacion || null;
+      // Si includeOrganizacion es null, usar isSuperAdmin para decidir
+      const shouldIncludeOrg = includeOrganizacion !== null ? includeOrganizacion : isSuperAdmin;
+      const data = await getAlmacenes(idOrganizacion, shouldIncludeOrg);
       setAlmacenes(data);
     } catch (err) {
       console.error("Error al cargar almacenes:", err.message);
@@ -18,6 +25,14 @@ export const useAlmacenes = () => {
   };
 
   const addAlmacen = async (almacen) => {
+    // Agregar idOrganizacion si no está presente y hay organización en el contexto
+    if (!almacen.idOrganizacion && organizacion?.idOrganizacion) {
+      almacen.idOrganizacion = organizacion.idOrganizacion;
+    }
+    // Validar que tenga idOrganizacion
+    if (!almacen.idOrganizacion) {
+      throw new Error("El almacén debe tener una organización asignada");
+    }
     const nuevo = await createAlmacen(almacen);
     setAlmacenes([...almacenes, nuevo]);
   };
@@ -33,8 +48,12 @@ export const useAlmacenes = () => {
   };
 
   useEffect(() => {
-    loadAlmacenes();
-  }, []);
+    // Cargar almacenes si hay organización o si es superadmin (carga todos)
+    if (organizacion?.idOrganizacion || !organizacion || isSuperAdmin) {
+      loadAlmacenes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizacion?.idOrganizacion, isSuperAdmin]);
 
-  return { almacenes, loading, addAlmacen, editAlmacen, removeAlmacen };
+  return { almacenes, loading, addAlmacen, editAlmacen, removeAlmacen, loadAlmacenes };
 };
