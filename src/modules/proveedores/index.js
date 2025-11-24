@@ -1,0 +1,1 @@
+export {default as ProveedorPage} from "../proveedores/pages/ProveedoresPage"

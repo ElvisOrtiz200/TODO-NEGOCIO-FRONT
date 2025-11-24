@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useRoles } from "../hooks/useRoles";
 import RolForm from "../components/RolForm";
+import AsignarPermisosModal from "../components/AsignarPermisosModal";
 
 export default function RolesPage() {
   const { roles, loading, addRol, editRol, removeRol } = useRoles();
   const [showForm, setShowForm] = useState(false);
   const [selectedRol, setSelectedRol] = useState(null);
+  const [showPermisosModal, setShowPermisosModal] = useState(false);
+  const [rolParaPermisos, setRolParaPermisos] = useState(null);
 
   const handleSubmit = async (rol) => {
     try {
@@ -18,6 +21,7 @@ export default function RolesPage() {
       setSelectedRol(null);
     } catch (error) {
       console.error("Error al guardar el rol:", error);
+      alert("Error al guardar el rol. Por favor, verifica los datos.");
     }
   };
 
@@ -64,6 +68,7 @@ export default function RolesPage() {
                 <tr>
                   <th className="p-2 text-left">ID</th>
                   <th className="p-2 text-left">Nombre</th>
+                  <th className="p-2 text-left">Fecha Registro</th>
                   <th className="p-2 text-left">Estado</th>
                   <th className="p-2 text-center">Acciones</th>
                 </tr>
@@ -74,9 +79,14 @@ export default function RolesPage() {
                     <td className="p-2">{rol.idRol}</td>
                     <td className="p-2">{rol.nombreRol}</td>
                     <td className="p-2">
+                      {rol.fechaRegistroRol
+                        ? new Date(rol.fechaRegistroRol).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="p-2">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          rol.activo
+                          rol.estadoRol
                             ? "bg-green-100 text-green-700"
                             : "bg-red-100 text-red-700"
                         }`}
@@ -85,6 +95,16 @@ export default function RolesPage() {
                       </span>
                     </td>
                     <td className="p-2 text-center space-x-3">
+                      <button
+                        onClick={() => {
+                          setRolParaPermisos(rol);
+                          setShowPermisosModal(true);
+                        }}
+                        className="text-green-500 hover:underline"
+                        title="Asignar permisos"
+                      >
+                        Permisos
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedRol(rol);
@@ -107,6 +127,17 @@ export default function RolesPage() {
             </table>
           )}
         </div>
+      )}
+
+      {/* Modal de asignar permisos */}
+      {showPermisosModal && rolParaPermisos && (
+        <AsignarPermisosModal
+          rol={rolParaPermisos}
+          onClose={() => {
+            setShowPermisosModal(false);
+            setRolParaPermisos(null);
+          }}
+        />
       )}
     </div>
   );
