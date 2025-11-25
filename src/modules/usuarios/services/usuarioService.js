@@ -143,59 +143,30 @@ export const createUsuario = async (usuario) => {
   // Extraer roles del objeto usuario (si viene)
   const { rolId, roles, ...datosUsuario } = usuario;
   
-  // Si ya existe idUsuario, significa que el usuario ya fue creado (por trigger)
-  // Solo actualizar los datos
-  if (datosUsuario.idUsuario) {
-    const { idUsuario, ...datosActualizar } = datosUsuario;
-    return await updateUsuario(idUsuario, datosActualizar);
-  }
-  
   const nuevoUsuario = {
     ...datosUsuario,
     estadoUsuario: true,
     fechaCreacion: new Date().toISOString()
   };
 
-  // Intentar insertar, pero si el usuario ya existe (por trigger), actualizar
+  // Intentar insertar el usuario
   let { data, error } = await supabase
     .from(TABLE)
     .insert([nuevoUsuario])
     .select(`
       *,
-      organizacion:ORGANIZACION(*)
+      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*)
     `)
     .single();
   
-  // Si el error es por duplicado (usuario ya existe), actualizar en su lugar
+  // Si el error es por duplicado (usuario ya existe), lanzar error con mensaje claro
   if (error && error.code === "23505") {
-    // Buscar el usuario existente por authUserId o email
-    const { data: usuarioExistente, error: searchError } = await supabase
-      .from(TABLE)
-      .select(`
-        *,
-        organizacion:ORGANIZACION(*)
-      `)
-      .or(`authUserId.eq.${datosUsuario.authUserId},emailUsuario.eq.${datosUsuario.emailUsuario}`)
-      .single();
-    
-    if (searchError) throw searchError;
-    
-    // Actualizar el usuario existente
-    const { data: updatedData, error: updateError } = await supabase
-      .from(TABLE)
-      .update({
-        ...nuevoUsuario,
-        fechaCreacion: usuarioExistente.fechaCreacion, // Preservar fecha original
-      })
-      .eq("idUsuario", usuarioExistente.idUsuario)
-      .select(`
-        *,
-        organizacion:ORGANIZACION(*)
-      `)
-      .single();
-    
-    if (updateError) throw updateError;
-    return updatedData;
+    const email = datosUsuario.emailUsuario || datosUsuario.authUserId || 'este email';
+    const errorMessage = `El usuario con email ${email} ya existe en el sistema. Por favor, usa la opción 'Buscar Usuario Existente' para agregarlo a la organización.`;
+    const duplicateError = new Error(errorMessage);
+    duplicateError.code = "23505";
+    duplicateError.details = "Usuario duplicado";
+    throw duplicateError;
   }
   
   if (error) throw error;
@@ -214,20 +185,57 @@ export const createUsuario = async (usuario) => {
  * Actualiza un usuario
  */
 export const updateUsuario = async (idUsuario, usuario) => {
+  console.log("🔍 [updateUsuario] Iniciando actualización:");
+  console.log("  - idUsuario recibido:", idUsuario, "tipo:", typeof idUsuario);
+  console.log("  - usuario recibido:", usuario);
+  
   // Extraer roles del objeto usuario
   const { rolId, roles, ...datosUsuario } = usuario;
   
+  // Asegurar que idUsuario sea un número (BIGINT)
+  const idUsuarioNum = typeof idUsuario === 'string' ? parseInt(idUsuario, 10) : idUsuario;
+  console.log("  - idUsuario convertido:", idUsuarioNum, "tipo:", typeof idUsuarioNum);
+  
+  // Limpiar datosUsuario: asegurar tipos correctos
+  const datosLimpios = { ...datosUsuario };
+  
+  // Asegurar que organizacionId sea string (UUID) o null
+  if (datosLimpios.organizacionId !== undefined && datosLimpios.organizacionId !== null) {
+    datosLimpios.organizacionId = String(datosLimpios.organizacionId);
+    console.log("  - organizacionId convertido a string:", datosLimpios.organizacionId);
+  }
+  
+  // Asegurar que authUserId sea string (UUID) o null
+  if (datosLimpios.authUserId !== undefined && datosLimpios.authUserId !== null) {
+    datosLimpios.authUserId = String(datosLimpios.authUserId);
+    console.log("  - authUserId convertido a string:", datosLimpios.authUserId);
+  }
+  
+  // Remover idUsuario de datosLimpios si está presente (no se debe actualizar)
+  delete datosLimpios.idUsuario;
+  
+  console.log("  - datosLimpios para actualizar:", datosLimpios);
+  
   const { data, error } = await supabase
     .from(TABLE)
-    .update(datosUsuario)
-    .eq("idUsuario", idUsuario)
+    .update(datosLimpios)
+    .eq("idUsuario", idUsuarioNum)
     .select(`
       *,
-      organizacion:ORGANIZACION(*)
+      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*)
     `)
     .single();
   
-  if (error) throw error;
+  if (error) {
+    console.error("❌ [updateUsuario] Error en la actualización:", error);
+    console.error("  - Código de error:", error.code);
+    console.error("  - Mensaje:", error.message);
+    console.error("  - Detalles:", error.details);
+    console.error("  - Hint:", error.hint);
+    throw error;
+  }
+  
+  console.log("✅ [updateUsuario] Usuario actualizado exitosamente:", data);
   
   // Los roles se actualizarán por separado usando usuarioRolService
   return data;
@@ -253,7 +261,7 @@ export const buscarUsuarioPorEmail = async (email) => {
     .from(TABLE)
     .select(`
       *,
-      organizacion:ORGANIZACION(*),
+      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*),
       roles:USUARIOROL(
         estadoUsuarioRol,
         rol:ROL(*)

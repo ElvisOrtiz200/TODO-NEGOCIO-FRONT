@@ -70,75 +70,106 @@ export default function UsuariosPage() {
     }
   };
 
+  // Función para manejar la actualización de usuario desde el botón Editar
+  const handleEditUsuario = async (usuario) => {
+    try {
+      // Extraer rolId para asignarlo después
+      const { rolId, ...datosUsuario } = usuario;
+      
+      // Actualizar datos del usuario
+      const resultado = await editUsuario(selectedUsuario.idUsuario, datosUsuario);
+      if (resultado.success) {
+        // Asignar rol solo si se proporcionó y es diferente al actual
+        if (rolId) {
+          try {
+            // Obtener los roles actuales del usuario
+            const rolesActuales = await getRolesByUsuario(selectedUsuario.idUsuario);
+            const rolActualId = rolesActuales && rolesActuales.length > 0 
+              ? rolesActuales.find(r => r.estadoUsuarioRol)?.idRol 
+              : null;
+            
+            // Convertir a número para comparación
+            const rolIdNum = parseInt(rolId);
+            const rolActualIdNum = rolActualId ? parseInt(rolActualId) : null;
+            
+            // Solo asignar si el rol cambió o si no tiene rol asignado
+            if (rolActualIdNum !== rolIdNum) {
+              console.log(`🔄 Rol cambió de ${rolActualIdNum} a ${rolIdNum}, actualizando...`);
+              await asignarRolesAUsuario(selectedUsuario.idUsuario, [rolIdNum]);
+            } else {
+              console.log(`ℹ️ El rol no cambió (${rolIdNum}), no se actualiza la asignación`);
+            }
+          } catch (rolError) {
+            console.error("Error asignando rol:", rolError);
+            const errorMsg = rolError?.message || rolError?.toString() || "Error desconocido";
+            const errorCode = rolError?.code || "";
+            
+            // Mensaje más específico para errores de RLS o recursión
+            if (errorCode === "42501" || errorCode === "42P17" || 
+                errorMsg.includes("403") || errorMsg.includes("Forbidden") || 
+                errorMsg.includes("row-level security") || errorMsg.includes("infinite recursion")) {
+              showError("No tienes permisos para asignar roles. Solo los superadmins pueden realizar esta acción. Si eres superadmin, ejecuta el script POLITICAS_RLS_USUARIOROL.sql en Supabase.");
+            } else {
+              warning(`Usuario actualizado pero hubo un error al asignar el rol: ${errorMsg}`);
+            }
+          }
+        } else {
+          console.log("ℹ️ No se proporcionó rolId, no se actualiza la asignación de roles");
+        }
+        // Recargar la lista después de actualizar
+        await reload();
+        setShowForm(false);
+        setSelectedUsuario(null);
+        success("Usuario actualizado exitosamente");
+      } else {
+        showError(resultado.error || "Error al actualizar el usuario");
+      }
+    } catch (error) {
+      console.error("Error al actualizar el usuario:", error);
+      showError("Error al actualizar el usuario");
+    }
+  };
+
+  // Función para manejar la creación de usuarios
   const handleSubmit = async (usuario) => {
     try {
       // Extraer rolId para asignarlo después
       const { rolId, ...datosUsuario } = usuario;
       
-      if (selectedUsuario) {
-        // Actualizar datos del usuario
-        const resultado = await editUsuario(selectedUsuario.idUsuario, datosUsuario);
-        if (resultado.success) {
-          // Asignar rol solo si se proporcionó y es diferente al actual
-          if (rolId) {
-            try {
-              // Obtener los roles actuales del usuario
-              const rolesActuales = await getRolesByUsuario(selectedUsuario.idUsuario);
-              const rolActualId = rolesActuales && rolesActuales.length > 0 
-                ? rolesActuales.find(r => r.estadoUsuarioRol)?.idRol 
-                : null;
-              
-              // Convertir a número para comparación
-              const rolIdNum = parseInt(rolId);
-              const rolActualIdNum = rolActualId ? parseInt(rolActualId) : null;
-              
-              // Solo asignar si el rol cambió o si no tiene rol asignado
-              if (rolActualIdNum !== rolIdNum) {
-                console.log(`🔄 Rol cambió de ${rolActualIdNum} a ${rolIdNum}, actualizando...`);
-                await asignarRolesAUsuario(selectedUsuario.idUsuario, [rolIdNum]);
-              } else {
-                console.log(`ℹ️ El rol no cambió (${rolIdNum}), no se actualiza la asignación`);
-              }
-            } catch (rolError) {
-              console.error("Error asignando rol:", rolError);
-              const errorMsg = rolError?.message || rolError?.toString() || "Error desconocido";
-              const errorCode = rolError?.code || "";
-              
-              // Mensaje más específico para errores de RLS o recursión
-              if (errorCode === "42501" || errorCode === "42P17" || 
-                  errorMsg.includes("403") || errorMsg.includes("Forbidden") || 
-                  errorMsg.includes("row-level security") || errorMsg.includes("infinite recursion")) {
-                showError("No tienes permisos para asignar roles. Solo los superadmins pueden realizar esta acción. Si eres superadmin, ejecuta el script POLITICAS_RLS_USUARIOROL.sql en Supabase.");
-              } else {
-                warning(`Usuario actualizado pero hubo un error al asignar el rol: ${errorMsg}`);
-              }
+      // Si viene con idUsuario, significa que el usuario ya fue creado por el trigger
+      // Solo asignar el rol si se proporcionó
+      if (datosUsuario.idUsuario) {
+        const idUsuario = typeof datosUsuario.idUsuario === 'string' 
+          ? parseInt(datosUsuario.idUsuario, 10) 
+          : datosUsuario.idUsuario;
+        
+        // Asignar rol si se proporcionó
+        if (rolId && idUsuario) {
+          try {
+            await asignarRolesAUsuario(idUsuario, [rolId]);
+          } catch (rolError) {
+            console.error("Error asignando rol:", rolError);
+            const errorMsg = rolError?.message || rolError?.toString() || "Error desconocido";
+            
+            // Mensaje más específico para errores 403 (RLS)
+            if (errorMsg.includes("403") || errorMsg.includes("Forbidden") || errorMsg.includes("row-level security")) {
+              showError("No tienes permisos para asignar roles. Solo los superadmins pueden realizar esta acción. Si eres superadmin, ejecuta el script POLITICAS_RLS_USUARIOROL.sql en Supabase.");
+            } else {
+              warning(`Usuario creado pero hubo un error al asignar el rol: ${errorMsg}`);
             }
-          } else {
-            console.log("ℹ️ No se proporcionó rolId, no se actualiza la asignación de roles");
           }
-          // Recargar la lista después de actualizar
-          await reload();
-          setShowForm(false);
-          setSelectedUsuario(null);
-          success("Usuario actualizado exitosamente");
-        } else {
-          showError(resultado.error || "Error al actualizar el usuario");
         }
+        // Recargar la lista después de crear
+        await reload();
+        setShowForm(false);
+        setSelectedUsuario(null);
+        success("Usuario creado exitosamente");
       } else {
-        // Crear nuevo usuario o actualizar si ya existe (por trigger)
-        let resultado;
-        
-        // Si viene con idUsuario, significa que el usuario ya fue creado por el trigger
-        if (datosUsuario.idUsuario) {
-          // Actualizar el usuario existente
-          resultado = await editUsuario(datosUsuario.idUsuario, datosUsuario);
-        } else {
-          // Crear nuevo usuario
-          resultado = await addUsuario(datosUsuario);
-        }
+        // Crear nuevo usuario (si no fue creado por trigger)
+        const resultado = await addUsuario(datosUsuario);
         
         if (resultado.success) {
-          const idUsuario = datosUsuario.idUsuario || resultado.data?.idUsuario;
+          const idUsuario = resultado.data?.idUsuario;
           
           // Asignar rol si se proporcionó
           if (rolId && idUsuario) {
@@ -156,7 +187,7 @@ export default function UsuariosPage() {
               }
             }
           }
-          // Recargar la lista después de crear/actualizar
+          // Recargar la lista después de crear
           await reload();
           setShowForm(false);
           setSelectedUsuario(null);
@@ -373,7 +404,7 @@ export default function UsuariosPage() {
           </h2>
           <UsuarioForm
             initialData={selectedUsuario}
-            onSubmit={handleSubmit}
+            onSubmit={selectedUsuario ? handleEditUsuario : handleSubmit}
             onCancel={() => {
               setShowForm(false);
               setSelectedUsuario(null);

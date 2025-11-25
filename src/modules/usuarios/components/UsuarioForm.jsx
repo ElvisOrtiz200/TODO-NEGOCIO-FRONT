@@ -127,11 +127,14 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
           data: {
             full_name: nombreUsuario.trim(),
             name: nombreUsuario.trim(),
+            telefono: telefonoUsuario.trim(),
+            organizacionId: String(organizacionId).trim(),
+            rolId: rolId ? String(rolId) : null,
           },
           email_redirect_to: `${window.location.origin}/login`,
         },
       });
-
+      console.log("signUpPromise", signUpPromise);
       // Crear una promesa para restaurar la sesión que se ejecutará inmediatamente después
       const restorePromise = signUpPromise.then(async (signUpResult) => {
         // Restaurar la sesión INMEDIATAMENTE después de que se complete el signUp
@@ -175,17 +178,18 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       }
 
       // El trigger automáticamente creará el registro en la tabla USUARIO
-      // Esperar un momento para que el trigger se ejecute (hasta 3 intentos)
+      // Esperar un momento para que el trigger se ejecute y luego obtener el usuario
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Obtener el usuario creado por el trigger
       let usuarioCreado = null;
       let intentos = 0;
       const maxIntentos = 5;
       
       while (!usuarioCreado && intentos < maxIntentos) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
         const { data: usuario, error: usuarioError } = await supabase
           .from("USUARIO")
-          .select("idUsuario, authUserId, emailUsuario, nombreUsuario")
+          .select("idUsuario, authUserId, emailUsuario, nombreUsuario, telefonoUsuario, organizacionId")
           .eq("authUserId", data.user.id)
           .maybeSingle();
 
@@ -194,71 +198,21 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
           break;
         }
         
+        // Si no se encontró, esperar un poco más antes del siguiente intento
+        if (intentos < maxIntentos - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
         intentos++;
       }
 
-      // Si después de los intentos no existe, intentar crearlo manualmente
       if (!usuarioCreado) {
-        console.warn("El trigger no creó el usuario, intentando crear manualmente...");
-        const { data: usuarioInsertado, error: insertError } = await supabase
-          .from("USUARIO")
-          .insert({
-            authUserId: data.user.id,
-            emailUsuario: email.trim(),
-            nombreUsuario: nombreUsuario.trim(),
-            telefonoUsuario: telefonoUsuario.trim() || null,
-            estadoUsuario: true,
-            organizacionId: organizacionId || null,
-          })
-          .select("idUsuario, authUserId, emailUsuario, nombreUsuario, telefonoUsuario")
-          .single();
-
-        if (insertError) {
-          // Si falla por duplicado, intentar obtenerlo
-          if (insertError.code === "23505") {
-            const { data: usuarioExistente } = await supabase
-              .from("USUARIO")
-              .select("idUsuario, authUserId, emailUsuario, nombreUsuario")
-              .eq("authUserId", data.user.id)
-              .single();
-            usuarioCreado = usuarioExistente;
-          } else {
-            setError(`Usuario creado en Auth pero error al crear en sistema: ${insertError.message}`);
-            setLoading(false);
-            return;
-          }
-        } else {
-          usuarioCreado = usuarioInsertado;
-        }
-      }
-
-      if (!usuarioCreado) {
-        setError("Error: No se pudo crear o encontrar el usuario en el sistema");
+        setError("Error: El trigger no creó el usuario en el sistema. Por favor, verifica que el trigger esté configurado correctamente.");
         setLoading(false);
         return;
       }
 
-      // Actualizar organización y nombreUsuario si es necesario
-      if (usuarioCreado.idUsuario) {
-        const datosActualizar = {};
-        if (organizacionId) {
-          // Asegurar que organizacionId sea string para comparaciones UUID
-          datosActualizar.organizacionId = String(organizacionId);
-        }
-        if (nombreUsuario.trim() && nombreUsuario.trim() !== usuarioCreado.nombreUsuario) {
-          datosActualizar.nombreUsuario = nombreUsuario.trim();
-        }
-        if (telefonoUsuario.trim()) {
-          datosActualizar.telefonoUsuario = telefonoUsuario.trim();
-        }
-        
-        if (Object.keys(datosActualizar).length > 0) {
-          await supabase
-            .from("USUARIO")
-            .update(datosActualizar)
-            .eq("idUsuario", usuarioCreado.idUsuario);
-        }
-      }
+      // El trigger ya debería haber creado el usuario con todos los datos correctos
+      // (nombreUsuario, telefonoUsuario, organizacionId) desde user_metadata
 
       // Restaurar la sesión del superadmin INMEDIATAMENTE después de crear el usuario
       // El listener en ProtectedRoute se encargará de restaurar automáticamente si es necesario
@@ -296,11 +250,14 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       setError("");
       
       // Continuar con el submit automáticamente
-      // Asegurar que organizacionId sea string para comparaciones UUID
+      // orgId ya está definido arriba, reutilizarlo
+      // Asegurar que idUsuario sea un número (BIGINT)
       const orgId = organizacionId ? String(organizacionId) : null;
+      const idUsuarioNum = usuarioCreado.idUsuario ? parseInt(usuarioCreado.idUsuario) : null;
+      console.log("MENSAJE DE UBICACION, HASTA QAQUI SIN ERROR");
       onSubmit({
         authUserId: data.user.id,
-        idUsuario: usuarioCreado.idUsuario,
+        idUsuario: idUsuarioNum,
         emailUsuario: email.trim(),
         nombreUsuario: nombreUsuario.trim(),
         telefonoUsuario: telefonoUsuario.trim() || null,

@@ -43,8 +43,14 @@ export const useUsuarios = (organizacionId = null) => {
 
   const editUsuario = async (idUsuario, usuario) => {
     try {
+      console.log("🔍 [editUsuario] Iniciando edición:");
+      console.log("  - idUsuario:", idUsuario, "tipo:", typeof idUsuario);
+      console.log("  - usuario:", usuario);
+      
       setError(null);
       const actualizado = await updateUsuario(idUsuario, usuario);
+      
+      console.log("✅ [editUsuario] Usuario actualizado, actualizando estado local");
       setUsuarios(
         usuarios.map((u) =>
           u.idUsuario === idUsuario ? actualizado : u
@@ -53,7 +59,11 @@ export const useUsuarios = (organizacionId = null) => {
       return { success: true, data: actualizado };
     } catch (err) {
       setError(err.message);
-      console.error("Error al actualizar usuario:", err.message);
+      console.error("❌ [editUsuario] Error al actualizar usuario:", err);
+      console.error("  - Mensaje:", err.message);
+      console.error("  - Código:", err.code);
+      console.error("  - Detalles:", err.details);
+      console.error("  - Stack:", err.stack);
       return { success: false, error: err.message };
     }
   };
