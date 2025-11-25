@@ -27,16 +27,16 @@ export const getUsuarios = async (organizacionId = null) => {
   }
 
   const { data, error } = await query.order("nombreUsuario", { ascending: true });
-  
+
   if (error) {
     console.error("Error en getUsuarios:", error);
     throw error;
   }
-  
+
   if (!data || data.length === 0) {
     return [];
   }
-  
+
   // Debug: verificar la estructura de datos
   if (data.length > 0 && data[0]) {
     console.log("Estructura de usuario ejemplo:", {
@@ -47,35 +47,35 @@ export const getUsuarios = async (organizacionId = null) => {
       esArray: Array.isArray(data[0].roles)
     });
   }
-  
+
   // Procesar usuarios y sus roles
   const usuariosProcesados = data.map(usuario => {
     let rolesActivos = [];
-    
+
     // Asegurarse de que roles sea un array
     const rolesUsuario = Array.isArray(usuario.roles) ? usuario.roles : (usuario.roles ? [usuario.roles] : []);
-    
+
     // Filtrar solo roles activos y que tengan el objeto rol cargado
     rolesActivos = rolesUsuario.filter(ur => {
       // Asegurarse de que el rol existe, está activo y tiene el objeto rol cargado
-      return ur && 
-             ur.estadoUsuarioRol === true && 
-             ur.rol && 
-             ur.rol.nombreRol;
+      return ur &&
+        ur.estadoUsuarioRol === true &&
+        ur.rol &&
+        ur.rol.nombreRol;
     });
-    
+
     // Si es para una organización específica y no tiene roles activos, filtrar el usuario
     if (organizacionId !== null && rolesActivos.length === 0) {
       return null; // Este usuario será filtrado
     }
-    
+
     return {
       ...usuario,
       roles: rolesActivos,
       rol: rolesActivos.length > 0 ? rolesActivos[0].rol : null
     };
   }).filter(usuario => usuario !== null); // Filtrar usuarios null (sin roles activos cuando es para org específica)
-  
+
   return usuariosProcesados;
 };
 
@@ -95,15 +95,15 @@ export const getUsuarioById = async (idUsuario) => {
     `)
     .eq("idUsuario", idUsuario)
     .single();
-  
+
   if (error) throw error;
-  
+
   // Agregar rol principal para compatibilidad
   if (data.roles && data.roles.length > 0) {
     const rolActivo = data.roles.find(ur => ur.estadoUsuarioRol);
     data.rol = rolActivo ? rolActivo.rol : (data.roles[0]?.rol || null);
   }
-  
+
   return data;
 };
 
@@ -124,15 +124,15 @@ export const getUsuarioByAuthId = async (authUserId) => {
     .eq("authUserId", authUserId)
     .eq("estadoUsuario", true)
     .single();
-  
+
   if (error && error.code !== "PGRST116") throw error;
-  
+
   // Agregar rol principal para compatibilidad
   if (data && data.roles && data.roles.length > 0) {
     const rolActivo = data.roles.find(ur => ur.estadoUsuarioRol);
     data.rol = rolActivo ? rolActivo.rol : (data.roles[0]?.rol || null);
   }
-  
+
   return data;
 };
 
@@ -142,7 +142,7 @@ export const getUsuarioByAuthId = async (authUserId) => {
 export const createUsuario = async (usuario) => {
   // Extraer roles del objeto usuario (si viene)
   const { rolId, roles, ...datosUsuario } = usuario;
-  
+
   const nuevoUsuario = {
     ...datosUsuario,
     estadoUsuario: true,
@@ -158,7 +158,7 @@ export const createUsuario = async (usuario) => {
       organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*)
     `)
     .single();
-  
+
   // Si el error es por duplicado (usuario ya existe), lanzar error con mensaje claro
   if (error && error.code === "23505") {
     const email = datosUsuario.emailUsuario || datosUsuario.authUserId || 'este email';
@@ -168,16 +168,16 @@ export const createUsuario = async (usuario) => {
     duplicateError.details = "Usuario duplicado";
     throw duplicateError;
   }
-  
+
   if (error) throw error;
-  
+
   // Si se proporcionó rolId o roles, asignarlos
   if (rolId || (roles && roles.length > 0)) {
     const idsRoles = roles || [rolId].filter(Boolean);
     // Esto se manejará en el componente que llama a esta función
     // usando asignarRolesAUsuario de usuarioRolService
   }
-  
+
   return data;
 };
 
@@ -188,44 +188,49 @@ export const updateUsuario = async (idUsuario, usuario) => {
   console.log("🔍 [updateUsuario] Iniciando actualización:");
   console.log("  - idUsuario recibido:", idUsuario, "tipo:", typeof idUsuario);
   console.log("  - usuario recibido:", usuario);
-  
+
   // Extraer roles del objeto usuario
   const { rolId, roles, ...datosUsuario } = usuario;
-  
+
   // Asegurar que idUsuario sea un número (BIGINT)
   const idUsuarioNum = typeof idUsuario === 'string' ? parseInt(idUsuario, 10) : idUsuario;
   console.log("  - idUsuario convertido:", idUsuarioNum, "tipo:", typeof idUsuarioNum);
-  
+
   // Limpiar datosUsuario: asegurar tipos correctos
   const datosLimpios = { ...datosUsuario };
-  
+
   // Asegurar que organizacionId sea string (UUID) o null
   if (datosLimpios.organizacionId !== undefined && datosLimpios.organizacionId !== null) {
     datosLimpios.organizacionId = String(datosLimpios.organizacionId);
     console.log("  - organizacionId convertido a string:", datosLimpios.organizacionId);
   }
-  
+
   // Asegurar que authUserId sea string (UUID) o null
   if (datosLimpios.authUserId !== undefined && datosLimpios.authUserId !== null) {
     datosLimpios.authUserId = String(datosLimpios.authUserId);
     console.log("  - authUserId convertido a string:", datosLimpios.authUserId);
   }
-  
+
   // Remover idUsuario de datosLimpios si está presente (no se debe actualizar)
   delete datosLimpios.idUsuario;
-  
+
   console.log("  - datosLimpios para actualizar:", datosLimpios);
-  
-  const { data, error } = await supabase
+
+  await supabase
     .from(TABLE)
     .update(datosLimpios)
-    .eq("idUsuario", idUsuarioNum)
+    .eq("idUsuario", idUsuarioNum);
+
+  const { data, error } = await supabase
+    .from(TABLE)
     .select(`
-      *,
-      organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*)
-    `)
+    *,
+    organizacion:ORGANIZACION!USUARIO_organizacionId_fkey(*)
+  `)
+    .eq("idUsuario", idUsuarioNum)
     .single();
-  
+
+
   if (error) {
     console.error("❌ [updateUsuario] Error en la actualización:", error);
     console.error("  - Código de error:", error.code);
@@ -234,9 +239,9 @@ export const updateUsuario = async (idUsuario, usuario) => {
     console.error("  - Hint:", error.hint);
     throw error;
   }
-  
+
   console.log("✅ [updateUsuario] Usuario actualizado exitosamente:", data);
-  
+
   // Los roles se actualizarán por separado usando usuarioRolService
   return data;
 };
@@ -249,7 +254,7 @@ export const deleteUsuario = async (idUsuario) => {
     .from(TABLE)
     .update({ estadoUsuario: false })
     .eq("idUsuario", idUsuario);
-  
+
   if (error) throw error;
 };
 
@@ -269,13 +274,13 @@ export const buscarUsuarioPorEmail = async (email) => {
     `)
     .eq("emailUsuario", email)
     .eq("estadoUsuario", true);
-  
+
   if (error) throw error;
-  
+
   // Agregar rol principal para compatibilidad
   return data.map(usuario => ({
     ...usuario,
-    rol: usuario.roles && usuario.roles.length > 0 
+    rol: usuario.roles && usuario.roles.length > 0
       ? usuario.roles.find(ur => ur.estadoUsuarioRol)?.rol || usuario.roles[0]?.rol
       : null
   }));
@@ -297,7 +302,7 @@ export const getUsuariosSinOrganizacion = async () => {
     .is("organizacionId", null)
     .eq("estadoUsuario", true)
     .order("nombreUsuario", { ascending: true });
-  
+
   if (error) throw error;
   return data;
 };
@@ -314,7 +319,7 @@ export const asignarUsuarioAOrganizacion = async (idUsuario, idOrganizacion) => 
     .eq("idUsuario", idUsuario)
     .select()
     .single();
-  
+
   if (error) throw error;
   return data;
 };

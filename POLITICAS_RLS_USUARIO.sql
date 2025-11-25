@@ -15,38 +15,41 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  es_admin BOOLEAN := false;
   id_usuario INTEGER;
+  es_admin BOOLEAN := false;
 BEGIN
-  SELECT "idUsuario" INTO id_usuario
-  FROM "USUARIO"
-  WHERE "authUserId" = user_id
-    AND "estadoUsuario" = true
-  LIMIT 1;
+  -- Obtener idUsuario
+  SELECT "idUsuario"
+    INTO id_usuario
+    FROM "USUARIO"
+    WHERE "authUserId" = user_id
+      AND "estadoUsuario" = true;
 
   IF id_usuario IS NULL THEN
     RETURN false;
   END IF;
 
-  PERFORM set_config('row_security', 'off', true);
-
+  -- Verificar si tiene el rol SUPERADMIN
   SELECT EXISTS(
     SELECT 1
     FROM "USUARIOROL" ur
-    INNER JOIN "ROL" r ON ur."idRol" = r."idRol"
+    JOIN "ROL" r ON r."idRol" = ur."idRol"
     WHERE ur."idUsuario" = id_usuario
       AND ur."estadoUsuarioRol" = true
       AND r."estadoRol" = true
-      AND (UPPER(r."nombreRol") = 'SUPERADMIN' OR r."idRol" = 1)
+      AND (
+        r."nombreRol" = 'SUPERADMIN'
+        OR r."idRol" = 1
+      )
   ) INTO es_admin;
-
-  PERFORM set_config('row_security', 'on', true);
 
   RETURN es_admin;
 END;
 $$;
 
+
 DROP FUNCTION IF EXISTS get_user_id_from_auth(UUID);
+-- Helper: obtener idUsuario desde authUserId
 CREATE OR REPLACE FUNCTION get_user_id_from_auth(auth_user_id UUID)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -54,15 +57,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  user_id INTEGER;
+  user_id BIGINT;
 BEGIN
-  SELECT "idUsuario" INTO user_id
-  FROM "USUARIO"
-  WHERE "authUserId" = auth_user_id
-    AND "estadoUsuario" = true
-  LIMIT 1;
+  SELECT "idUsuario"
+    INTO user_id
+    FROM "USUARIO"
+    WHERE "authUserId" = auth_user_id
+      AND "estadoUsuario" = true;
 
-  RETURN user_id;
+  RETURN user_id; -- si no encuentra regresará NULL automáticamente
 END;
 $$;
 
@@ -234,7 +237,7 @@ ON "USUARIO"
 FOR SELECT
 TO authenticated
 USING (
-  pertenece_a_organizacion(auth.uid(), "organizacionId")
+  pertenece_a_organizacion(auth.uid(), "organizacionId"::UUID)
 );
 
 -- =====================================================
@@ -245,7 +248,7 @@ ON "USUARIO"
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  es_admin_organizacion(auth.uid(), "organizacionId")
+  es_admin_organizacion(auth.uid(), "organizacionId"::UUID)
 );
 
 CREATE POLICY "Superadmins autorizados pueden crear usuarios"
@@ -253,7 +256,7 @@ ON "USUARIO"
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId")
+  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId"::UUID)
 );
 
 -- =====================================================
@@ -264,10 +267,10 @@ ON "USUARIO"
 FOR UPDATE
 TO authenticated
 USING (
-  es_admin_organizacion(auth.uid(), "organizacionId")
+  es_admin_organizacion(auth.uid(), "organizacionId"::UUID)
 )
 WITH CHECK (
-  es_admin_organizacion(auth.uid(), "organizacionId")
+  es_admin_organizacion(auth.uid(), "organizacionId"::UUID)
 );
 
 CREATE POLICY "Superadmins autorizados pueden actualizar usuarios"
@@ -275,10 +278,10 @@ ON "USUARIO"
 FOR UPDATE
 TO authenticated
 USING (
-  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId")
+  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId"::UUID)
 )
 WITH CHECK (
-  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId")
+  superadmin_autorizado_para_organizacion(auth.uid(), "organizacionId"::UUID)
 );
 
 -- =====================================================

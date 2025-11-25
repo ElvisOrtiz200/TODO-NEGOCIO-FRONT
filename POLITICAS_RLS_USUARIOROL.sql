@@ -58,15 +58,16 @@ AS $$
 DECLARE
   user_id INTEGER;
 BEGIN
-  SELECT "idUsuario" INTO user_id
-  FROM "USUARIO"
-  WHERE "authUserId" = auth_user_id
-    AND "estadoUsuario" = true
-  LIMIT 1;
+  SELECT "idUsuario"
+    INTO user_id
+    FROM "USUARIO"
+    WHERE "authUserId" = auth_user_id
+      AND "estadoUsuario" = true;
 
-  RETURN user_id;
+  RETURN user_id; -- si no encuentra regresará NULL automáticamente
 END;
 $$;
+
 
 -- Helper: organización a partir del idUsuario (acepta BIGINT para columnas serial/bigserial)
 DROP FUNCTION IF EXISTS get_organizacion_id_from_usuario(BIGINT);

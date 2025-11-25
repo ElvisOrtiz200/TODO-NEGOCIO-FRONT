@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useUsuarios } from "../hooks/useUsuarios";
 import UsuarioForm from "../components/UsuarioForm";
 import { useOrganizacion } from "../../../context/OrganizacionContext";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { asignarRolesAUsuario, getRolesByUsuario } from "../services/usuarioRolService";
 import { useToast } from "../../../components/ToastContainer";
-import { actualizarAutorizacionSuperadmin } from "../../organizaciones/services/organizacionService";
+import { actualizarAutorizacionSuperadmin, getOrganizaciones } from "../../organizaciones/services/organizacionService";
 
 export default function UsuariosPage() {
   const { organizacion, usuario, actualizarOrganizacion, organizacionVista } = useOrganizacion();
@@ -19,6 +19,8 @@ export default function UsuariosPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
   const [actualizandoAutorizacion, setActualizandoAutorizacion] = useState(false);
+  const [organizaciones, setOrganizaciones] = useState([]);
+  const [loadingOrganizaciones, setLoadingOrganizaciones] = useState(false);
   
   // Estados para filtros
   const [filtroNombre, setFiltroNombre] = useState("");
@@ -26,6 +28,27 @@ export default function UsuariosPage() {
   const [filtroRol, setFiltroRol] = useState("todos");
   const [filtroOrganizacion, setFiltroOrganizacion] = useState("todos");
   const [filtroEstado, setFiltroEstado] = useState("todos");
+
+  // Cargar organizaciones solo si es superadmin y no está viendo una organización
+  useEffect(() => {
+    if (isSuperAdmin && !organizacionVista) {
+      const loadOrganizaciones = async () => {
+        try {
+          setLoadingOrganizaciones(true);
+          const data = await getOrganizaciones();
+          setOrganizaciones(data || []);
+        } catch (error) {
+          console.error("Error al cargar organizaciones:", error);
+          setOrganizaciones([]);
+        } finally {
+          setLoadingOrganizaciones(false);
+        }
+      };
+      loadOrganizaciones();
+    } else {
+      setOrganizaciones([]);
+    }
+  }, [isSuperAdmin, organizacionVista]);
 
   const rolesDelUsuarioActual = useMemo(() => {
     if (!usuario?.roles) return [];
@@ -39,7 +62,8 @@ export default function UsuariosPage() {
   const orgActiva = organizacionVista || organizacion;
   const esAdministradorOrg = !isSuperAdmin && rolesDelUsuarioActual.includes("ADMINISTRADOR");
   const autorizadoSuperadmin = Boolean(orgActiva?.autorizaSuperadminUsuarios);
-  const puedeCrearUsuarios = esAdministradorOrg && tienePermiso("usuarios.crear");
+  // El superadmin puede crear usuarios cuando no está viendo una organización específica
+  const puedeCrearUsuarios = (isSuperAdmin && !organizacionVista) || (esAdministradorOrg && tienePermiso("usuarios.crear"));
   const autorizacionActivaDesde = orgActiva?.autorizaSuperadminUsuariosDesde
     ? new Date(organizacion.autorizaSuperadminUsuariosDesde).toLocaleString()
     : null;
@@ -411,6 +435,8 @@ export default function UsuariosPage() {
             }}
             organizacionId={(organizacionVista || organizacion)?.idOrganizacion || null}
             organizacionNombre={(organizacionVista || organizacion)?.nombreOrganizacion || ""}
+            isSuperAdmin={isSuperAdmin && !organizacionVista}
+            organizaciones={organizaciones}
           />
         </div>
       ) : (

@@ -3,7 +3,7 @@ import { supabase } from "../../../api/supabaseClient";
 import { useRoles } from "../../../modules/clientes/hooks/useRoles";
 import { getRolesByUsuario } from "../services/usuarioRolService";
 
-export default function UsuarioForm({ initialData, onSubmit, onCancel, organizacionId, organizacionNombre = "" }) {
+export default function UsuarioForm({ initialData, onSubmit, onCancel, organizacionId, organizacionNombre = "", isSuperAdmin = false, organizaciones = [] }) {
   const { roles } = useRoles();
   const [email, setEmail] = useState("");
   const [nombreUsuario, setNombreUsuario] = useState("");
@@ -12,10 +12,16 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authUserId, setAuthUserId] = useState("");
   const [rolId, setRolId] = useState("");
+  const [organizacionIdSeleccionada, setOrganizacionIdSeleccionada] = useState(organizacionId || "");
   const [loading, setLoading] = useState(false);
-  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [setLoadingRoles] = useState(false);
   const [error, setError] = useState("");
   const [modoCrear, setModoCrear] = useState(!initialData); // Modo crear por defecto si no hay initialData
+
+  // Filtrar roles: si es superadmin, solo mostrar ADMINISTRADOR
+  const rolesDisponibles = isSuperAdmin 
+    ? roles.filter(rol => rol.nombreRol?.toUpperCase() === "ADMINISTRADOR" || rol.nombreRol?.toUpperCase() === "ADMIN")
+    : roles;
 
   useEffect(() => {
     if (initialData) {
@@ -24,6 +30,11 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       setTelefonoUsuario(initialData.telefonoUsuario || "");
       setAuthUserId(initialData.authUserId || "");
       setModoCrear(false); // Si hay datos, es modo edición
+      
+      // Si es superadmin y hay organizacionId en initialData, establecerlo
+      if (isSuperAdmin && initialData.organizacionId) {
+        setOrganizacionIdSeleccionada(initialData.organizacionId);
+      }
       
       // Cargar roles del usuario si tiene idUsuario
       if (initialData.idUsuario) {
@@ -56,8 +67,12 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       setConfirmPassword("");
       setAuthUserId("");
       setRolId("");
+      // Si es superadmin, resetear la organización seleccionada
+      if (isSuperAdmin) {
+        setOrganizacionIdSeleccionada("");
+      }
     }
-  }, [initialData]);
+  }, [initialData, isSuperAdmin]);
 
   const handleCrearUsuario = async () => {
     if (!email.trim()) {
@@ -85,6 +100,12 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       return;
     }
 
+    // Si es superadmin, validar que se haya seleccionado una organización
+    if (isSuperAdmin && !organizacionIdSeleccionada) {
+      setError("Por favor selecciona una organización");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -103,7 +124,6 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       const originalAccessToken = currentSession.access_token;
       const originalRefreshToken = currentSession.refresh_token;
       const originalUserId = currentSession.user.id;
-      const originalUserEmail = currentSession.user.email;
 
       // Marcar que estamos creando un usuario para evitar redirecciones
       // Guardar los tokens también en localStorage como respaldo
@@ -114,6 +134,9 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
         access_token: originalAccessToken,
         refresh_token: originalRefreshToken
       }));
+
+      // Determinar el organizacionId a usar: si es superadmin, usar el seleccionado; si no, usar el prop
+      const orgIdFinal = isSuperAdmin ? organizacionIdSeleccionada : organizacionId;
 
       // Crear usuario en Supabase Auth
       // NOTA: Para que el usuario pueda iniciar sesión inmediatamente sin confirmar email,
@@ -128,7 +151,7 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
             full_name: nombreUsuario.trim(),
             name: nombreUsuario.trim(),
             telefono: telefonoUsuario.trim(),
-            organizacionId: String(organizacionId).trim(),
+            organizacionId: orgIdFinal ? String(orgIdFinal).trim() : null,
             rolId: rolId ? String(rolId) : null,
           },
           email_redirect_to: `${window.location.origin}/login`,
@@ -250,9 +273,8 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       setError("");
       
       // Continuar con el submit automáticamente
-      // orgId ya está definido arriba, reutilizarlo
-      // Asegurar que idUsuario sea un número (BIGINT)
-      const orgId = organizacionId ? String(organizacionId) : null;
+      // Determinar el organizacionId final: si es superadmin, usar el seleccionado; si no, usar el prop
+      const orgId = orgIdFinal ? String(orgIdFinal) : null;
       const idUsuarioNum = usuarioCreado.idUsuario ? parseInt(usuarioCreado.idUsuario) : null;
       console.log("MENSAJE DE UBICACION, HASTA QAQUI SIN ERROR");
       onSubmit({
@@ -316,8 +338,9 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
           } else {
             setError("Usuario no encontrado. Puedes crear un nuevo usuario usando el botón 'Crear Nuevo Usuario'.");
           }
-        } catch (adminError) {
-          setError("Usuario no encontrado. Puedes crear un nuevo usuario usando el botón 'Crear Nuevo Usuario'.");
+        } catch (err) {
+          console.error("Error buscando usuario:", err);
+          setError("Error al buscar usuario. Puedes crear un nuevo usuario usando el botón 'Crear Nuevo Usuario'.");
         }
       }
     } catch (err) {
@@ -343,8 +366,15 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
       return;
     }
 
-    // Asegurar que organizacionId sea string para comparaciones UUID
-    const orgId = organizacionId ? String(organizacionId) : null;
+    // Si es superadmin, validar que se haya seleccionado una organización
+    if (isSuperAdmin && !organizacionIdSeleccionada) {
+      setError("Por favor selecciona una organización");
+      return;
+    }
+
+    // Determinar el organizacionId final: si es superadmin, usar el seleccionado; si no, usar el prop
+    const orgIdFinal = isSuperAdmin ? organizacionIdSeleccionada : organizacionId;
+    const orgId = orgIdFinal ? String(orgIdFinal) : null;
     onSubmit({
       authUserId,
       emailUsuario: email.trim(),
@@ -358,12 +388,17 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {organizacionId && (
+      {!isSuperAdmin && organizacionId && (
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
           Los usuarios creados desde este formulario se asociarán automáticamente a{" "}
           <span className="font-semibold text-[#2B3E3C]">
             {organizacionNombre || "tu organización"}
           </span>. Solo los administradores pueden modificar esta configuración.
+        </div>
+      )}
+      {isSuperAdmin && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          Como superadmin, puedes crear usuarios con rol <span className="font-semibold">ADMINISTRADOR</span> y asignarlos a cualquier organización.
         </div>
       )}
       {/* Selector de modo */}
@@ -503,6 +538,28 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
         />
       </div>
 
+      {/* Selector de Organización (solo para superadmin) */}
+      {isSuperAdmin && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Organización <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={organizacionIdSeleccionada}
+            onChange={(e) => setOrganizacionIdSeleccionada(e.target.value)}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
+          >
+            <option value="">Selecciona una organización</option>
+            {organizaciones.map((org) => (
+              <option key={org.idOrganizacion} value={org.idOrganizacion}>
+                {org.nombreOrganizacion}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Rol
@@ -513,12 +570,17 @@ export default function UsuarioForm({ initialData, onSubmit, onCancel, organizac
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
         >
           <option value="">Sin rol asignado</option>
-          {roles.map((rol) => (
+          {rolesDisponibles.map((rol) => (
             <option key={rol.idRol} value={rol.idRol}>
               {rol.nombreRol}
             </option>
           ))}
         </select>
+        {isSuperAdmin && (
+          <p className="text-xs text-gray-500 mt-1">
+            Como superadmin, solo puedes asignar el rol ADMINISTRADOR
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
