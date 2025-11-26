@@ -306,6 +306,20 @@ export default function Sidebar({ isOpen, onClose }) {
         </NavLink>
       )}
 
+      {/* Mi Plan - Solo para administradores de organización */}
+      {!mostrarComoSuperAdmin && esAdministradorOrg && (
+        <NavLink
+          to="/home/mi-plan"
+          className={({ isActive }) =>
+            `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+              isActive ? "bg-[#22312f] font-semibold" : ""
+            }`
+          }
+        >
+          💳 Mi Plan
+        </NavLink>
+      )}
+
       {/* Permisos - Solo para superadmin cuando NO está viendo una organización */}
       {mostrarComoSuperAdmin && (
         <NavLink

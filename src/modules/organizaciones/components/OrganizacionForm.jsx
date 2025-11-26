@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
-import { usePlanes } from "../../planes/hooks/usePlanes";
 
 export default function OrganizacionForm({ initialData, onSubmit, onCancel }) {
-  const { planes, loading: planesLoading } = usePlanes();
   const [nombreOrganizacion, setNombreOrganizacion] = useState("");
   const [telefonoOrganizacion, setTelefonoOrganizacion] = useState("");
   const [direccionOrganizacion, setDireccionOrganizacion] = useState("");
   const [codigoOrganizacion, setCodigoOrganizacion] = useState("");
-  const [planId, setPlanId] = useState("");
 
   useEffect(() => {
     if (initialData) {
@@ -15,12 +12,8 @@ export default function OrganizacionForm({ initialData, onSubmit, onCancel }) {
       setTelefonoOrganizacion(initialData.telefonoOrganizacion || "");
       setDireccionOrganizacion(initialData.direccionOrganizacion || "");
       setCodigoOrganizacion(initialData.codigoOrganizacion || "");
-      setPlanId(initialData.planId || "");
-    } else if (planes.length > 0 && !planId) {
-      // Establecer el primer plan como predeterminado
-      setPlanId(planes[0].idPlan);
     }
-  }, [initialData, planes, planId]);
+  }, [initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,7 +22,6 @@ export default function OrganizacionForm({ initialData, onSubmit, onCancel }) {
       telefonoOrganizacion: telefonoOrganizacion.trim() || null,
       direccionOrganizacion: direccionOrganizacion.trim() || null,
       codigoOrganizacion: codigoOrganizacion.trim() || null,
-      planId: planId ? parseInt(planId) : null,
       estadoOrganizacion: true,
     });
   };
@@ -74,29 +66,6 @@ export default function OrganizacionForm({ initialData, onSubmit, onCancel }) {
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
           placeholder="Dirección de la empresa"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Plan <span className="text-red-500">*</span>
-        </label>
-        {planesLoading ? (
-          <p className="text-sm text-gray-500">Cargando planes...</p>
-        ) : (
-          <select
-            value={planId}
-            onChange={(e) => setPlanId(e.target.value)}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-          >
-            <option value="">Seleccionar plan</option>
-            {planes.map((plan) => (
-              <option key={plan.idPlan} value={plan.idPlan}>
-                {plan.nombrePlan} - ${plan.precioPlan}
-              </option>
-            ))}
-          </select>
-        )}
       </div>
 
       <div>

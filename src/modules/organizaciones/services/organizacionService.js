@@ -11,12 +11,20 @@ export const getOrganizaciones = async () => {
     .from(TABLE)
     .select(`
       *,
-      plan:PLAN(*)
+      planesActivos:ORGANIZACIONPLAN!organizacionId(
+        *,
+        plan:PLAN(*)
+      )
     `)
     .eq("estadoOrganizacion", true)
     .order("nombreOrganizacion", { ascending: true });
   if (error) throw error;
-  return data;
+  
+  // Mapear para mantener compatibilidad con código existente
+  return data.map(org => ({
+    ...org,
+    plan: org.planesActivos?.find(p => p.estado === "activo")?.plan || null
+  }));
 };
 
 /**
@@ -29,17 +37,26 @@ export const getOrganizacionById = async (idOrganizacion) => {
     .from(TABLE)
     .select(`
       *,
-      plan:PLAN(*)
+      planesActivos:ORGANIZACIONPLAN!organizacionId(
+        *,
+        plan:PLAN(*)
+      )
     `)
     .eq("idOrganizacion", idOrg)
     .single();
   if (error) throw error;
-  return data;
+  
+  // Mapear para mantener compatibilidad con código existente
+  return {
+    ...data,
+    plan: data.planesActivos?.find(p => p.estado === "activo")?.plan || null
+  };
 };
 
 /**
  * Crea una nueva organización
  * Solo puede ser llamada por un superadmin
+ * Nota: El plan se asigna desde el módulo de planes usando ORGANIZACIONPLAN
  */
 export const createOrganizacion = async (organizacion) => {
   const nuevaOrganizacion = {
@@ -48,39 +65,62 @@ export const createOrganizacion = async (organizacion) => {
     fechaCreacion: new Date().toISOString()
   };
 
-  // Si no se proporciona planId, usar un plan por defecto
-  if (!nuevaOrganizacion.planId) {
-    nuevaOrganizacion.planId = 1; // Plan básico por defecto
-  }
+  // Eliminar planId si existe (ya no se usa)
+  delete nuevaOrganizacion.planId;
 
   const { data, error } = await supabase
     .from(TABLE)
     .insert([nuevaOrganizacion])
     .select(`
       *,
-      plan:PLAN(*)
+      planesActivos:ORGANIZACIONPLAN!organizacionId(
+        *,
+        plan:PLAN(*)
+      )
     `)
     .single();
   
   if (error) throw error;
-  return data;
+  
+  // Mapear para mantener compatibilidad con código existente
+  return {
+    ...data,
+    plan: data.planesActivos?.find(p => p.estado === "activo")?.plan || null
+  };
 };
 
 /**
  * Actualiza una organización
+ * Nota: planId ya no se usa, los planes se gestionan desde ORGANIZACIONPLAN
  */
 export const updateOrganizacion = async (idOrganizacion, organizacion) => {
   // Asegurar que idOrganizacion sea string para comparaciones UUID
   const idOrg = idOrganizacion ? String(idOrganizacion) : null;
+  
+  // Eliminar planId si existe (ya no se usa)
+  const organizacionActualizada = { ...organizacion };
+  delete organizacionActualizada.planId;
+  
   const { data, error } = await supabase
     .from(TABLE)
-    .update(organizacion)
+    .update(organizacionActualizada)
     .eq("idOrganizacion", idOrg)
-    .select()
+    .select(`
+      *,
+      planesActivos:ORGANIZACIONPLAN!organizacionId(
+        *,
+        plan:PLAN(*)
+      )
+    `)
     .single();
   
   if (error) throw error;
-  return data;
+  
+  // Mapear para mantener compatibilidad con código existente
+  return {
+    ...data,
+    plan: data.planesActivos?.find(p => p.estado === "activo")?.plan || null
+  };
 };
 
 /**
