@@ -86,7 +86,7 @@ export default function ComprasPage() {
                         {new Date(c.fechaCompra).toLocaleDateString()}
                       </td>
                       <td className="p-2">
-                        {c.proveedor?.nombreProveedor || "-"}
+                        {c.proveedor?.nombreComercial || c.proveedor?.nombre || "-"}
                       </td>
                       <td className="p-2 font-semibold">
                         ${c.totalCompra?.toFixed(2) || "0.00"}

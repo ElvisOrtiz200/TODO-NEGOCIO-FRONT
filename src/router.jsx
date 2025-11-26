@@ -20,6 +20,7 @@ import { UsuariosPage } from "./modules/usuarios";
 import { RolesPage } from "./modules/roles";
 import { PlanesPage } from "./modules/planes";
 import MiPlanPage from "./modules/planes/pages/MiPlanPage";
+import { UnidadesMedidaPage } from "./modules/unidadesMedida";
 
 
 export const router = createBrowserRouter([
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path : "usuarios", element : <UsuariosPage/>},
       { path : "planes", element : <PlanesPage/>},
       { path : "mi-plan", element : <MiPlanPage/>},
+      { path : "unidades-medida", element : <UnidadesMedidaPage/>},
     ],
   },
 ]);

@@ -27,27 +27,53 @@ export const useProveedores = () => {
   };
 
   const addProveedor = async (proveedor) => {
-    // Agregar idOrganizacion si no está presente
-    const orgActiva = organizacionVista || organizacion;
-    if (!proveedor.idOrganizacion && orgActiva?.idOrganizacion) {
-      proveedor.idOrganizacion = orgActiva.idOrganizacion;
+    try {
+      // Agregar idOrganizacion si no está presente
+      const orgActiva = organizacionVista || organizacion;
+      if (!proveedor.idOrganizacion && orgActiva?.idOrganizacion) {
+        proveedor.idOrganizacion = orgActiva.idOrganizacion;
+      }
+      console.log("📝 Creando proveedor con datos:", proveedor);
+      const nuevo = await createProveedor(proveedor);
+      console.log("✅ Proveedor creado exitosamente:", nuevo);
+      // Recargar la lista completa para asegurar sincronización
+      await loadProveedores();
+      return nuevo;
+    } catch (err) {
+      console.error("❌ Error creando proveedor:", err);
+      throw err;
     }
-    const nuevo = await createProveedor(proveedor);
-    setProveedores([...proveedores, nuevo]);
   };
 
   const editProveedor = async (idProveedor, proveedor) => {
-    const actualizado = await updateProveedor(idProveedor, proveedor);
-    setProveedores(
-      proveedores.map((p) =>
-        p.idProveedor === idProveedor ? actualizado : p
-      )
-    );
+    try {
+      // Asegurar que idOrganizacion esté presente para validaciones
+      const orgActiva = organizacionVista || organizacion;
+      if (!proveedor.idOrganizacion && orgActiva?.idOrganizacion) {
+        proveedor.idOrganizacion = orgActiva.idOrganizacion;
+      }
+      console.log("✏️ Actualizando proveedor:", idProveedor, proveedor);
+      const actualizado = await updateProveedor(idProveedor, proveedor);
+      console.log("✅ Proveedor actualizado exitosamente:", actualizado);
+      // Recargar la lista completa para asegurar sincronización
+      await loadProveedores();
+      return actualizado;
+    } catch (err) {
+      console.error("❌ Error actualizando proveedor:", err);
+      throw err;
+    }
   };
 
   const removeProveedor = async (idProveedor) => {
-    await deleteProveedor(idProveedor);
-    setProveedores(proveedores.filter((p) => p.idProveedor !== idProveedor));
+    try {
+      console.log("🗑️ Eliminando proveedor:", idProveedor);
+      await deleteProveedor(idProveedor);
+      // Recargar la lista completa para asegurar sincronización
+      await loadProveedores();
+    } catch (err) {
+      console.error("❌ Error eliminando proveedor:", err);
+      throw err;
+    }
   };
 
   useEffect(() => {
@@ -57,5 +83,5 @@ export const useProveedores = () => {
     }
   }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
-  return { proveedores, loading, addProveedor, editProveedor, removeProveedor };
+  return { proveedores, loading, addProveedor, editProveedor, removeProveedor, loadProveedores };
 };

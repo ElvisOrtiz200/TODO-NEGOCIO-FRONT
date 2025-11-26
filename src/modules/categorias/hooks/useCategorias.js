@@ -12,7 +12,8 @@ export const useCategorias = () => {
       setLoading(true);
       const orgActiva = organizacionVista || organizacion;
       const idOrganizacion = orgActiva?.idOrganizacion || null;
-      const data = await getCategorias(idOrganizacion);
+      // Cargar todas las categorías (activas e inactivas) para que el filtro funcione
+      const data = await getCategorias(idOrganizacion, true);
       setCategorias(data);
     } catch (err) {
       console.error("Error al cargar categorías:", err.message);
@@ -22,23 +23,48 @@ export const useCategorias = () => {
   };
 
   const addCategoria = async (categoria) => {
-    // Agregar idOrganizacion si no está presente
-    const orgActiva = organizacionVista || organizacion;
-    if (!categoria.idOrganizacion && orgActiva?.idOrganizacion) {
-      categoria.idOrganizacion = orgActiva.idOrganizacion;
+    try {
+      // Agregar idOrganizacion si no está presente
+      const orgActiva = organizacionVista || organizacion;
+      if (!categoria.idOrganizacion && orgActiva?.idOrganizacion) {
+        categoria.idOrganizacion = orgActiva.idOrganizacion;
+      }
+      console.log("📝 Creando categoría con datos:", categoria);
+      const nueva = await createCategoria(categoria);
+      console.log("✅ Categoría creada exitosamente:", nueva);
+      // Recargar la lista completa para asegurar sincronización
+      await loadCategorias();
+      return nueva;
+    } catch (err) {
+      console.error("❌ Error creando categoría:", err);
+      throw err;
     }
-    const nueva = await createCategoria(categoria);
-    setCategorias([...categorias, nueva]);
   };
 
   const editCategoria = async (idCategoria, categoria) => {
-    const actualizada = await updateCategoria(idCategoria, categoria);
-    setCategorias(categorias.map((c) => (c.idCategoria === idCategoria ? actualizada : c)));
+    try {
+      console.log("✏️ Actualizando categoría:", idCategoria, categoria);
+      const actualizada = await updateCategoria(idCategoria, categoria);
+      console.log("✅ Categoría actualizada exitosamente:", actualizada);
+      // Recargar la lista completa para asegurar sincronización
+      await loadCategorias();
+      return actualizada;
+    } catch (err) {
+      console.error("❌ Error actualizando categoría:", err);
+      throw err;
+    }
   };
 
   const removeCategoria = async (idCategoria) => {
-    await deleteCategoria(idCategoria);
-    setCategorias(categorias.filter((c) => c.idCategoria !== idCategoria));
+    try {
+      console.log("🗑️ Eliminando categoría:", idCategoria);
+      await deleteCategoria(idCategoria);
+      // Recargar la lista completa para asegurar sincronización
+      await loadCategorias();
+    } catch (err) {
+      console.error("❌ Error eliminando categoría:", err);
+      throw err;
+    }
   };
 
   useEffect(() => {
@@ -48,5 +74,5 @@ export const useCategorias = () => {
     }
   }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
-  return { categorias, loading, addCategoria, editCategoria, removeCategoria };
+  return { categorias, loading, addCategoria, editCategoria, removeCategoria, loadCategorias };
 };

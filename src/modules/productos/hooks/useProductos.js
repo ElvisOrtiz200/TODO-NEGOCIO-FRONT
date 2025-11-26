@@ -48,6 +48,11 @@ export const useProductos = () => {
 
   const editProducto = async (idProducto, producto) => {
     try {
+      // Asegurar que idOrganizacion esté presente para validaciones
+      const orgActiva = organizacionVista || organizacion;
+      if (!producto.idOrganizacion && orgActiva?.idOrganizacion) {
+        producto.idOrganizacion = orgActiva.idOrganizacion;
+      }
       console.log("✏️ Actualizando producto:", idProducto, producto);
       const actualizado = await updateProducto(idProducto, producto);
       console.log("✅ Producto actualizado exitosamente:", actualizado);

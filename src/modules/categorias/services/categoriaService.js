@@ -2,13 +2,17 @@ import { supabase } from "../../../api/supabaseClient";
 
 const TABLE = "CATEGORIA";
 
-export const getCategorias = async (idOrganizacion = null) => {
+export const getCategorias = async (idOrganizacion = null, incluirInactivas = false) => {
   // Asegurar que idOrganizacion sea string para comparaciones UUID
   const orgId = idOrganizacion ? String(idOrganizacion) : null;
   let query = supabase
     .from(TABLE)
-    .select("*")
-    .eq("estadoCategoria", true);
+    .select("*");
+  
+  // Filtrar por estado solo si no se incluyen inactivas
+  if (!incluirInactivas) {
+    query = query.eq("estadoCategoria", true);
+  }
   
   // Filtrar por organización si se proporciona
   if (orgId) {

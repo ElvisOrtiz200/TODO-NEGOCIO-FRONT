@@ -1,11 +1,11 @@
 -- =====================================================
--- POLÍTICAS RLS PARA LA TABLA PROVEEDOR
+-- POLÍTICAS RLS PARA LA TABLA ALMACENPRODUCTO
 -- =====================================================
 -- Este script crea las políticas RLS necesarias para que:
 -- 1. Los superadmins puedan hacer CRUD completo
--- 2. Los usuarios solo puedan ver proveedores de su organización
--- 3. Solo el ADMINISTRADOR de la organización (y SUPERADMIN) puede crear/actualizar (administrar) proveedores
--- 4. La eliminación es "soft delete" a través de UPDATE (estado = false)
+-- 2. Los usuarios solo puedan ver registros de su organización
+-- 3. Solo el ADMINISTRADOR de la organización (y SUPERADMIN) puede crear/actualizar/eliminar
+-- 4. La eliminación es "soft delete" (cambia estadoAlmacenProducto a false) mediante UPDATE
 -- =====================================================
 
 -- Función helper para verificar si un usuario es superadmin
@@ -83,7 +83,6 @@ END;
 $$;
 
 -- Función helper para verificar si un usuario es ADMINISTRADOR de organización
--- (rol 'ADMINISTRADOR' asociado al usuario actual)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -137,27 +136,22 @@ END $$;
 -- =====================================================
 -- ELIMINAR POLÍTICAS EXISTENTES (si existen)
 -- =====================================================
-DROP POLICY IF EXISTS "Superadmins pueden ver todos los proveedores" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Superadmins pueden crear proveedores" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Superadmins pueden actualizar proveedores" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Superadmins pueden eliminar proveedores" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Usuarios pueden ver proveedores de su organización" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Usuarios pueden crear proveedores en su organización" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Usuarios pueden actualizar proveedores de su organización" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Usuarios pueden eliminar proveedores de su organización" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Admins pueden crear proveedores de su organización" ON "PROVEEDOR";
-DROP POLICY IF EXISTS "Admins pueden actualizar proveedores de su organización" ON "PROVEEDOR";
+DROP POLICY IF EXISTS "Superadmins pueden ver todos los almacenproductos" ON "ALMACENPRODUCTO";
+DROP POLICY IF EXISTS "Usuarios pueden ver almacenproductos de su organización" ON "ALMACENPRODUCTO";
+DROP POLICY IF EXISTS "Admins pueden crear almacenproductos de su organización" ON "ALMACENPRODUCTO";
+DROP POLICY IF EXISTS "Admins pueden actualizar almacenproductos de su organización" ON "ALMACENPRODUCTO";
+DROP POLICY IF EXISTS "Admins pueden eliminar almacenproductos de su organización" ON "ALMACENPRODUCTO";
 
 -- =====================================================
--- HABILITAR RLS EN LA TABLA PROVEEDOR
+-- HABILITAR RLS EN LA TABLA ALMACENPRODUCTO
 -- =====================================================
-ALTER TABLE "PROVEEDOR" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ALMACENPRODUCTO" ENABLE ROW LEVEL SECURITY;
 
 -- =====================================================
--- POLÍTICA 1: Superadmins pueden ver todos los proveedores
+-- POLÍTICA 1: Superadmins pueden ver todos los registros
 -- =====================================================
-CREATE POLICY "Superadmins pueden ver todos los proveedores"
-ON "PROVEEDOR"
+CREATE POLICY "Superadmins pueden ver todos los almacenproductos"
+ON "ALMACENPRODUCTO"
 FOR SELECT
 TO authenticated
 USING (
@@ -165,25 +159,22 @@ USING (
 );
 
 -- =====================================================
--- POLÍTICA 2: Usuarios pueden ver proveedores de su organización
+-- POLÍTICA 2: Usuarios pueden ver registros de su organización
 -- =====================================================
-CREATE POLICY "Usuarios pueden ver proveedores de su organización"
-ON "PROVEEDOR"
+CREATE POLICY "Usuarios pueden ver almacenproductos de su organización"
+ON "ALMACENPRODUCTO"
 FOR SELECT
 TO authenticated
 USING (
   "idOrganizacion" = get_user_organizacion_id(auth.uid())
-  AND "estado" = true
+  AND "estadoAlmacenProducto" = true
 );
 
 -- =====================================================
--- POLÍTICA 3: Superadmins pueden crear proveedores
+-- POLÍTICA 3: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden crear registros
 -- =====================================================
--- POLÍTICA 3: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden crear proveedores
--- Nota: ADMINISTRADOR solo puede crear en su propia organización;
---       SUPERADMIN puede crear en cualquier organización.
-CREATE POLICY "Admins pueden crear proveedores de su organización"
-ON "PROVEEDOR"
+CREATE POLICY "Admins pueden crear almacenproductos de su organización"
+ON "ALMACENPRODUCTO"
 FOR INSERT
 TO authenticated
 WITH CHECK (
@@ -195,10 +186,10 @@ WITH CHECK (
 );
 
 -- =====================================================
--- POLÍTICA 4: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden actualizar proveedores
+-- POLÍTICA 4: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden actualizar registros
 -- =====================================================
-CREATE POLICY "Admins pueden actualizar proveedores de su organización"
-ON "PROVEEDOR"
+CREATE POLICY "Admins pueden actualizar almacenproductos de su organización"
+ON "ALMACENPRODUCTO"
 FOR UPDATE
 TO authenticated
 USING (
@@ -217,42 +208,16 @@ WITH CHECK (
 );
 
 -- =====================================================
--- POLÍTICA 7: Superadmins pueden eliminar proveedores (soft delete)
+-- POLÍTICA 5: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden eliminar registros (soft delete)
 -- =====================================================
--- Nota: La eliminación es "soft delete" (cambia estado a false)
+-- Nota: La eliminación es "soft delete" (cambia estadoAlmacenProducto a false)
 -- Por lo tanto, se usa la política de UPDATE
-
--- =====================================================
--- POLÍTICA 8: Usuarios pueden eliminar proveedores de su organización (soft delete)
--- =====================================================
--- Nota: La eliminación es "soft delete" (cambia estado a false)
--- Por lo tanto, se usa la política de UPDATE
-
--- =====================================================
--- VERIFICACIÓN
--- =====================================================
--- Verificar que las políticas se crearon correctamente
-SELECT 
-  schemaname,
-  tablename,
-  policyname,
-  permissive,
-  roles,
-  cmd,
-  qual,
-  with_check
-FROM pg_policies
-WHERE tablename = 'PROVEEDOR'
-ORDER BY policyname;
 
 -- =====================================================
 -- NOTAS
 -- =====================================================
--- 1. Los superadmins tienen acceso completo (CRUD)
--- 2. Los usuarios normales solo pueden ver proveedores activos de su organización
--- 3. Solo el rol ADMINISTRADOR (de la organización) puede crear/actualizar proveedores de su organización
--- 4. La eliminación es "soft delete" (cambia estado a false) y se controla vía UPDATE
--- 5. La función is_superadmin usa SECURITY DEFINER para evitar recursión
--- 6. La función get_user_organizacion_id obtiene el UUID de la organización del usuario
--- 7. La función is_admin_organizacion valida el rol 'ADMINISTRADOR' del usuario actual
+-- 1. Los superadmins tienen acceso completo (CRUD) sobre ALMACENPRODUCTO
+-- 2. Los usuarios normales solo pueden ver registros activos de su propia organización
+-- 3. Solo el rol ADMINISTRADOR (de la organización) puede crear/actualizar/eliminar registros de su organización
+-- 4. La eliminación lógica (soft delete) se implementa marcando estadoAlmacenProducto = false vía UPDATE
 

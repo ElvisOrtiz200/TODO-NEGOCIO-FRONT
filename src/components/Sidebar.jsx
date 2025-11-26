@@ -377,6 +377,17 @@ export default function Sidebar({ isOpen, onClose }) {
             💳 Planes
           </NavLink>
 
+          <NavLink
+            to="/home/unidades-medida"
+            className={({ isActive }) =>
+              `px-4 py-2 rounded-md hover:bg-[#22312f] transition-colors ${
+                isActive ? "bg-[#22312f] font-semibold" : ""
+              }`
+            }
+          >
+            📏 Unidades de Medida
+          </NavLink>
+
           {/* Separador */}
           <div className="border-t border-gray-600 my-3"></div>
         </>

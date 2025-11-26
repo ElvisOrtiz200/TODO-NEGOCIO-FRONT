@@ -18,8 +18,7 @@ export default function ProductoPage() {
   const [filtroNombre, setFiltroNombre] = useState("");
   const [filtroCodigo, setFiltroCodigo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todos");
-  const [filtroAlmacen, setFiltroAlmacen] = useState("todos");
-  const [filtroStock, setFiltroStock] = useState("todos");
+  const [filtroTipoProducto, setFiltroTipoProducto] = useState("todos");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroPrecioMin, setFiltroPrecioMin] = useState("");
   const [filtroPrecioMax, setFiltroPrecioMax] = useState("");
@@ -49,7 +48,7 @@ export default function ProductoPage() {
     }
   };
 
-  // Obtener categorías y almacenes únicos para los filtros
+  // Obtener categorías únicas para los filtros
   const categoriasUnicas = useMemo(() => {
     const categorias = productos
       .map(p => p.categoria)
@@ -61,31 +60,17 @@ export default function ProductoPage() {
     return categorias;
   }, [productos]);
 
-  const almacenesUnicos = useMemo(() => {
-    const almacenes = productos
-      .map(p => p.almacen)
-      .filter(Boolean)
-      .map(a => ({ idAlmacen: a.idAlmacen, nombreAlmacen: a.nombreAlmacen }))
-      .filter((a, index, self) => 
-        index === self.findIndex((t) => t.idAlmacen === a.idAlmacen)
-      );
-    return almacenes;
-  }, [productos]);
-
   // Filtrar productos
   const productosFiltrados = useMemo(() => {
     return productos.filter((producto) => {
       const coincideNombre = filtroNombre === "" || 
         producto.nombreProducto?.toLowerCase().includes(filtroNombre.toLowerCase());
       const coincideCodigo = filtroCodigo === "" || 
-        producto.codigoBarras?.toLowerCase().includes(filtroCodigo.toLowerCase());
+        producto.codigoBarra?.toLowerCase().includes(filtroCodigo.toLowerCase());
       const coincideCategoria = filtroCategoria === "todos" || 
         producto.categoria?.idCategoria === parseInt(filtroCategoria);
-      const coincideAlmacen = filtroAlmacen === "todos" || 
-        producto.almacen?.idAlmacen === parseInt(filtroAlmacen);
-      const coincideStock = filtroStock === "todos" ||
-        (filtroStock === "bajo" && producto.stockActual <= producto.stockMinimo) ||
-        (filtroStock === "normal" && producto.stockActual > producto.stockMinimo);
+      const coincideTipoProducto = filtroTipoProducto === "todos" || 
+        producto.tipoProducto === filtroTipoProducto;
       const coincideEstado = filtroEstado === "todos" || 
         (filtroEstado === "activo" && producto.estadoProducto) ||
         (filtroEstado === "inactivo" && !producto.estadoProducto);
@@ -93,24 +78,23 @@ export default function ProductoPage() {
       const coincidePrecioMin = filtroPrecioMin === "" || precioVenta >= parseFloat(filtroPrecioMin);
       const coincidePrecioMax = filtroPrecioMax === "" || precioVenta <= parseFloat(filtroPrecioMax);
       
-      return coincideNombre && coincideCodigo && coincideCategoria && coincideAlmacen && 
-             coincideStock && coincideEstado && coincidePrecioMin && coincidePrecioMax;
+      return coincideNombre && coincideCodigo && coincideCategoria && 
+             coincideTipoProducto && coincideEstado && coincidePrecioMin && coincidePrecioMax;
     });
-  }, [productos, filtroNombre, filtroCodigo, filtroCategoria, filtroAlmacen, filtroStock, filtroEstado, filtroPrecioMin, filtroPrecioMax]);
+  }, [productos, filtroNombre, filtroCodigo, filtroCategoria, filtroTipoProducto, filtroEstado, filtroPrecioMin, filtroPrecioMax]);
 
   const limpiarFiltros = () => {
     setFiltroNombre("");
     setFiltroCodigo("");
     setFiltroCategoria("todos");
-    setFiltroAlmacen("todos");
-    setFiltroStock("todos");
+    setFiltroTipoProducto("todos");
     setFiltroEstado("todos");
     setFiltroPrecioMin("");
     setFiltroPrecioMax("");
   };
 
-  const tieneFiltrosActivos = filtroNombre !== "" || filtroCodigo !== "" || filtroCategoria !== "todos" || 
-    filtroAlmacen !== "todos" || filtroStock !== "todos" || filtroEstado !== "todos" || 
+  const tieneFiltrosActivos = filtroNombre !== "" || filtroCodigo !== "" || 
+    filtroCategoria !== "todos" || filtroTipoProducto !== "todos" || filtroEstado !== "todos" || 
     filtroPrecioMin !== "" || filtroPrecioMax !== "";
 
   if (permissionsLoading) {
@@ -199,7 +183,7 @@ export default function ProductoPage() {
                 />
               </div>
 
-              {/* Filtro por Código */}
+              {/* Filtro por Código de Barras */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   🏷️ Código de Barras
@@ -208,7 +192,7 @@ export default function ProductoPage() {
                   type="text"
                   value={filtroCodigo}
                   onChange={(e) => setFiltroCodigo(e.target.value)}
-                  placeholder="Buscar por código..."
+                  placeholder="Buscar por código de barras..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
                 />
               </div>
@@ -232,38 +216,22 @@ export default function ProductoPage() {
                 </select>
               </div>
 
-              {/* Filtro por Almacén */}
+              {/* Filtro por Tipo de Producto */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  🏪 Almacén
+                  📦 Tipo de Producto
                 </label>
                 <select
-                  value={filtroAlmacen}
-                  onChange={(e) => setFiltroAlmacen(e.target.value)}
+                  value={filtroTipoProducto}
+                  onChange={(e) => setFiltroTipoProducto(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
                 >
-                  <option value="todos">Todos los almacenes</option>
-                  {almacenesUnicos.map((alm) => (
-                    <option key={alm.idAlmacen} value={alm.idAlmacen}>
-                      {alm.nombreAlmacen}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Filtro por Stock */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  📦 Estado de Stock
-                </label>
-                <select
-                  value={filtroStock}
-                  onChange={(e) => setFiltroStock(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-                >
-                  <option value="todos">Todos</option>
-                  <option value="bajo">Stock Bajo</option>
-                  <option value="normal">Stock Normal</option>
+                  <option value="todos">Todos los tipos</option>
+                  <option value="PRODUCTO">Producto</option>
+                  <option value="SERVICIO">Servicio</option>
+                  <option value="MATERIA_PRIMA">Materia Prima</option>
+                  <option value="INSUMO">Insumo</option>
+                  <option value="OTRO">Otro</option>
                 </select>
               </div>
 
@@ -346,12 +314,13 @@ export default function ProductoPage() {
                     <tr>
                       <th className="p-3 text-left">ID</th>
                       <th className="p-3 text-left">Nombre</th>
-                      <th className="p-3 text-left">Código</th>
+                      <th className="p-3 text-left">Código Barras</th>
                       <th className="p-3 text-left">Categoría</th>
-                      <th className="p-3 text-left">Almacén</th>
+                      <th className="p-3 text-left">Proveedor</th>
+                      <th className="p-3 text-left">Tipo</th>
                       <th className="p-3 text-left">Precio Compra</th>
                       <th className="p-3 text-left">Precio Venta</th>
-                      <th className="p-3 text-left">Stock</th>
+                      <th className="p-3 text-left">Maneja Stock</th>
                       <th className="p-3 text-left">Estado</th>
                       {!organizacionVista && (
                         <th className="p-3 text-center">Acciones</th>
@@ -363,20 +332,25 @@ export default function ProductoPage() {
                       <tr key={p.idProducto} className="border-b hover:bg-gray-50 transition-colors">
                         <td className="p-3">{p.idProducto}</td>
                         <td className="p-3 font-medium">{p.nombreProducto}</td>
-                        <td className="p-3">{p.codigoBarras || "-"}</td>
+                        <td className="p-3">{p.codigoBarra || "-"}</td>
                         <td className="p-3">{p.categoria?.nombreCategoria || "-"}</td>
-                        <td className="p-3">{p.almacen?.nombreAlmacen || "-"}</td>
+                        <td className="p-3">{p.proveedor?.nombreComercial || p.proveedor?.nombre || "-"}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
+                            {p.tipoProducto || "-"}
+                          </span>
+                        </td>
                         <td className="p-3">${p.precioCompra?.toFixed(2) || "0.00"}</td>
                         <td className="p-3 font-semibold text-green-600">${p.precioVenta?.toFixed(2) || "0.00"}</td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              (p.stockActual || 0) <= (p.stockMinimo || 0)
-                                ? "bg-red-100 text-red-700"
-                                : "bg-green-100 text-green-700"
+                              p.manejaStock
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-700"
                             }`}
                           >
-                            {p.stockActual || 0} / {p.stockMinimo || 0}
+                            {p.manejaStock ? "Sí" : "No"}
                           </span>
                         </td>
                         <td className="p-3">
