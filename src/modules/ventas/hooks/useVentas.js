@@ -7,15 +7,19 @@ import {
   getVentaById,
   createVentaDetalle,
 } from "../services/ventaService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useVentas = () => {
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadVentas = async () => {
     try {
       setLoading(true);
-      const data = await getVentas();
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
+      const data = await getVentas(idOrganizacion);
       setVentas(data);
     } catch (err) {
       console.error("Error al cargar ventas:", err.message);
@@ -58,7 +62,7 @@ export const useVentas = () => {
 
   useEffect(() => {
     loadVentas();
-  }, []);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return {
     ventas,

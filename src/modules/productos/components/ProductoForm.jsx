@@ -1,46 +1,81 @@
 import { useState, useEffect } from "react";
 import { useCategorias } from "../../categorias/hooks/useCategorias";
+import { useProveedores } from "../../proveedores/hooks/useProveedores";
+import { useUnidadesMedida } from "../../unidadesMedida/hooks/useUnidadesMedida";
 import { useAlmacenes } from "../../almacenes/hooks/useAlmacenes";
 import { useToast } from "../../../components/ToastContainer";
+import { getAlmacenProductoByProducto } from "../../almacenProducto/services/almacenProductoService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export default function ProductoForm({ initialData, onSubmit, onCancel }) {
   const { categorias } = useCategorias();
-  const { almacenes } = useAlmacenes();
+  const { proveedores } = useProveedores();
+  const { unidadesMedida, loading: loadingUnidades } = useUnidadesMedida();
+  const { almacenes, loading: loadingAlmacenes } = useAlmacenes();
+  const { organizacion, organizacionVista } = useOrganizacion();
   const { warning } = useToast();
   const [nombreProducto, setNombreProducto] = useState("");
-  const [descripcionProducto, setDescripcionProducto] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const [precioCompra, setPrecioCompra] = useState("");
   const [precioVenta, setPrecioVenta] = useState("");
-  const [stockMinimo, setStockMinimo] = useState("");
-  const [stockActual, setStockActual] = useState("");
   const [idCategoria, setIdCategoria] = useState("");
+  const [idProveedor, setIdProveedor] = useState("");
+  const [idUnidadMedida, setIdUnidadMedida] = useState("");
+  const [tipoProducto, setTipoProducto] = useState("");
+  const [codigoBarra, setCodigoBarra] = useState("");
+  const [manejaStock, setManejaStock] = useState(true);
   const [idAlmacen, setIdAlmacen] = useState("");
-  const [codigoBarras, setCodigoBarras] = useState("");
+  const [stockActual, setStockActual] = useState("");
+  const [stockMinimo, setStockMinimo] = useState("");
 
   useEffect(() => {
+    const loadAlmacenProducto = async () => {
+      if (initialData?.idProducto && initialData?.manejaStock) {
+        try {
+          const orgActiva = organizacionVista || organizacion;
+          const idOrganizacion = orgActiva?.idOrganizacion || null;
+          const almacenProductos = await getAlmacenProductoByProducto(initialData.idProducto, idOrganizacion);
+          if (almacenProductos && almacenProductos.length > 0) {
+            const ap = almacenProductos[0];
+            setIdAlmacen(ap.idAlmacen || "");
+            setStockActual(ap.stockActual || "");
+            setStockMinimo(ap.stockMinimo || "");
+          }
+        } catch (error) {
+          console.error("Error al cargar almacén producto:", error);
+        }
+      }
+    };
+
     if (initialData) {
       setNombreProducto(initialData.nombreProducto || "");
-      setDescripcionProducto(initialData.descripcionProducto || "");
+      setDescripcion(initialData.descripcion || "");
       setPrecioCompra(initialData.precioCompra || "");
       setPrecioVenta(initialData.precioVenta || "");
-      setStockMinimo(initialData.stockMinimo || "");
-      setStockActual(initialData.stockActual || "");
       setIdCategoria(initialData.idCategoria || "");
-      setIdAlmacen(initialData.idAlmacen || "");
-      setCodigoBarras(initialData.codigoBarras || "");
+      setIdProveedor(initialData.idProveedor || "");
+      setIdUnidadMedida(initialData.idUnidadMedida || "");
+      setTipoProducto(initialData.tipoProducto || "");
+      setCodigoBarra(initialData.codigoBarra || "");
+      setManejaStock(initialData.manejaStock !== undefined ? initialData.manejaStock : true);
+      loadAlmacenProducto();
     } else {
       // Resetear campos si no hay datos iniciales
       setNombreProducto("");
-      setDescripcionProducto("");
+      setDescripcion("");
       setPrecioCompra("");
       setPrecioVenta("");
-      setStockMinimo("");
-      setStockActual("");
       setIdCategoria("");
+      setIdProveedor("");
+      setIdUnidadMedida("");
+      setTipoProducto("");
+      setCodigoBarra("");
+      setManejaStock(true);
       setIdAlmacen("");
-      setCodigoBarras("");
+      setStockActual("");
+      setStockMinimo("");
     }
-  }, [initialData]);
+  }, [initialData, organizacion, organizacionVista]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -56,11 +91,6 @@ export default function ProductoForm({ initialData, onSubmit, onCancel }) {
       return;
     }
 
-    if (!idAlmacen) {
-      warning("Debes seleccionar un almacén");
-      return;
-    }
-
     const precioCompraNum = parseFloat(precioCompra) || 0;
     const precioVentaNum = parseFloat(precioVenta) || 0;
 
@@ -69,22 +99,55 @@ export default function ProductoForm({ initialData, onSubmit, onCancel }) {
       return;
     }
 
+    if (manejaStock && !idAlmacen) {
+      warning("Debes seleccionar un almacén cuando el producto maneja stock");
+      return;
+    }
+
+    if (manejaStock) {
+      const stockActualNum = parseInt(stockActual) || 0;
+      const stockMinimoNum = parseInt(stockMinimo) || 0;
+      
+      if (stockMinimoNum < 0) {
+        warning("El stock mínimo no puede ser negativo");
+        return;
+      }
+      
+      if (stockActualNum < 0) {
+        warning("El stock actual no puede ser negativo");
+        return;
+      }
+    }
+
     const productoData = {
       nombreProducto: nombreProducto.trim(),
-      descripcionProducto: descripcionProducto.trim() || null,
+      descripcion: descripcion.trim() || null,
       precioCompra: precioCompraNum,
       precioVenta: precioVentaNum,
-      stockMinimo: parseInt(stockMinimo) || 0,
-      stockActual: parseInt(stockActual) || 0,
       idCategoria: parseInt(idCategoria),
-      idAlmacen: parseInt(idAlmacen),
-      codigoBarras: codigoBarras.trim() || null,
+      idProveedor: idProveedor ? parseInt(idProveedor) : null,
+      idUnidadMedida: idUnidadMedida ? parseInt(idUnidadMedida) : null,
+      tipoProducto: tipoProducto.trim() || null,
+      codigoBarra: codigoBarra.trim() || null,
+      manejaStock: manejaStock,
       estadoProducto: true,
     };
     
     // Solo agregar fechaRegistroProducto si es un nuevo producto
     if (!initialData) {
       productoData.fechaRegistroProducto = new Date().toISOString();
+    } else {
+      // En actualización, actualizar fechaActualizacion
+      productoData.fechaActualizacion = new Date().toISOString();
+    }
+
+    // Agregar datos de almacén producto si maneja stock
+    if (manejaStock && idAlmacen) {
+      productoData.almacenProducto = {
+        idAlmacen: parseInt(idAlmacen),
+        stockActual: parseInt(stockActual) || 0,
+        stockMinimo: parseInt(stockMinimo) || 0,
+      };
     }
     
     console.log("📤 Enviando datos del producto:", productoData);
@@ -114,8 +177,8 @@ export default function ProductoForm({ initialData, onSubmit, onCancel }) {
           </label>
           <input
             type="text"
-            value={codigoBarras}
-            onChange={(e) => setCodigoBarras(e.target.value)}
+            value={codigoBarra}
+            onChange={(e) => setCodigoBarra(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
             placeholder="Código de barras (opcional)"
           />
@@ -126,8 +189,8 @@ export default function ProductoForm({ initialData, onSubmit, onCancel }) {
             Descripción
           </label>
           <textarea
-            value={descripcionProducto}
-            onChange={(e) => setDescripcionProducto(e.target.value)}
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
             rows="3"
             placeholder="Descripción del producto (opcional)"
@@ -155,22 +218,145 @@ export default function ProductoForm({ initialData, onSubmit, onCancel }) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Almacén <span className="text-red-500">*</span>
+            Proveedor
           </label>
           <select
-            value={idAlmacen}
-            onChange={(e) => setIdAlmacen(e.target.value)}
-            required
+            value={idProveedor}
+            onChange={(e) => setIdProveedor(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
           >
-            <option value="">Seleccione un almacén</option>
-            {almacenes.map((alm) => (
-              <option key={alm.idAlmacen} value={alm.idAlmacen}>
-                {alm.nombreAlmacen}
+            <option value="">Seleccione un proveedor (opcional)</option>
+            {proveedores.map((prov) => (
+              <option key={prov.idProveedor} value={prov.idProveedor}>
+                {prov.nombreComercial || prov.nombre || `Proveedor ${prov.idProveedor}`}
               </option>
             ))}
           </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tipo de Producto
+          </label>
+          <select
+            value={tipoProducto}
+            onChange={(e) => setTipoProducto(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
+          >
+            <option value="">Seleccione un tipo (opcional)</option>
+            <option value="PRODUCTO">Producto</option>
+            <option value="SERVICIO">Servicio</option>
+            <option value="MATERIA_PRIMA">Materia Prima</option>
+            <option value="INSUMO">Insumo</option>
+            <option value="OTRO">Otro</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Unidad de Medida
+          </label>
+          <select
+            value={idUnidadMedida}
+            onChange={(e) => setIdUnidadMedida(e.target.value)}
+            disabled={loadingUnidades}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+          >
+            <option value="">
+              {loadingUnidades ? "Cargando..." : "Seleccione una unidad (opcional)"}
+            </option>
+            {unidadesMedida.map((unidad) => (
+              <option key={unidad.idUnidadMedida} value={unidad.idUnidadMedida}>
+                {unidad.nombreUnidadMedida}
+              </option>
+            ))}
+          </select>
+          {!loadingUnidades && unidadesMedida.length === 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              No hay unidades de medida disponibles
+            </p>
+          )}
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={manejaStock}
+              onChange={(e) => {
+                setManejaStock(e.target.checked);
+                if (!e.target.checked) {
+                  setIdAlmacen("");
+                  setStockActual("");
+                  setStockMinimo("");
+                }
+              }}
+              className="w-4 h-4 text-[#2B3E3C] border-gray-300 rounded focus:ring-[#2B3E3C]"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              Maneja Stock
+            </span>
+          </label>
+        </div>
+
+        {manejaStock && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Almacén <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={idAlmacen}
+                onChange={(e) => setIdAlmacen(e.target.value)}
+                required={manejaStock}
+                disabled={loadingAlmacenes}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {loadingAlmacenes ? "Cargando..." : "Seleccione un almacén"}
+                </option>
+                {almacenes.map((alm) => (
+                  <option key={alm.idAlmacen} value={alm.idAlmacen}>
+                    {alm.nombreAlmacen}
+                  </option>
+                ))}
+              </select>
+              {!loadingAlmacenes && almacenes.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  No hay almacenes disponibles
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stock Actual
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={stockActual}
+                onChange={(e) => setStockActual(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stock Mínimo
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={stockMinimo}
+                onChange={(e) => setStockMinimo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
+                placeholder="0"
+              />
+            </div>
+          </>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -204,35 +390,6 @@ export default function ProductoForm({ initialData, onSubmit, onCancel }) {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Stock Mínimo <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            min="0"
-            value={stockMinimo}
-            onChange={(e) => setStockMinimo(e.target.value)}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-            placeholder="0"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Stock Actual <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            min="0"
-            value={stockActual}
-            onChange={(e) => setStockActual(e.target.value)}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-            placeholder="0"
-          />
-        </div>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">

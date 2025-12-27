@@ -1,0 +1,275 @@
+-- =====================================================
+-- POLÍTICAS RLS PARA LA TABLA CATEGORIA
+-- =====================================================
+-- Este script crea las políticas RLS necesarias para que:
+-- 1. Los superadmins puedan hacer CRUD completo
+-- 2. Solo el ADMINISTRADOR de la organización (y SUPERADMIN) puede ver/crear/actualizar/eliminar categorías
+-- 3. La eliminación es "soft delete" (cambia estadoCategoria a false) mediante UPDATE
+-- =====================================================
+
+-- Función helper para verificar si un usuario es superadmin
+-- (Reutilizar la función si ya existe, si no, crearla)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc 
+    WHERE proname = 'is_superadmin' 
+    AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+  ) THEN
+    CREATE OR REPLACE FUNCTION is_superadmin(user_id UUID)
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = public
+    AS $$
+    DECLARE
+      es_admin BOOLEAN := false;
+      id_usuario INTEGER;
+    BEGIN
+      -- Primero obtener el idUsuario
+      SELECT "idUsuario" INTO id_usuario
+      FROM "USUARIO"
+      WHERE "authUserId" = user_id
+      AND "estadoUsuario" = true
+      LIMIT 1;
+      
+      -- Si no existe el usuario, retornar false
+      IF id_usuario IS NULL THEN
+        RETURN false;
+      END IF;
+      
+      -- Verificar si tiene el rol SUPERADMIN
+      -- Deshabilitar RLS temporalmente para evitar recursión infinita
+      PERFORM set_config('row_security', 'off', true);
+      
+      SELECT EXISTS(
+        SELECT 1
+        FROM "USUARIOROL" ur
+        INNER JOIN "ROL" r ON ur."idRol" = r."idRol"
+        WHERE ur."idUsuario" = id_usuario
+        AND ur."estadoUsuarioRol" = true
+        AND r."estadoRol" = true
+        AND (r."nombreRol" = 'SUPERADMIN' OR r."idRol" = 1)
+      ) INTO es_admin;
+      
+      -- Restaurar RLS
+      PERFORM set_config('row_security', 'on', true);
+      
+      RETURN es_admin;
+    END;
+    $$;
+  END IF;
+END $$;
+
+-- Función helper para obtener el idOrganizacion del usuario autenticado
+CREATE OR REPLACE FUNCTION get_user_organizacion_id(user_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  id_organizacion UUID;
+BEGIN
+  SELECT u."organizacionId" INTO id_organizacion
+  FROM "USUARIO" u
+  WHERE u."authUserId" = user_id
+  AND u."estadoUsuario" = true
+  LIMIT 1;
+  
+  RETURN id_organizacion;
+END;
+$$;
+
+-- Función helper para verificar si un usuario es ADMINISTRADOR de organización
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc 
+    WHERE proname = 'is_admin_organizacion' 
+    AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+  ) THEN
+    CREATE OR REPLACE FUNCTION is_admin_organizacion(user_id UUID)
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = public
+    AS $$
+    DECLARE
+      es_admin BOOLEAN := false;
+      id_usuario INTEGER;
+    BEGIN
+      -- Primero obtener el idUsuario
+      SELECT "idUsuario" INTO id_usuario
+      FROM "USUARIO"
+      WHERE "authUserId" = user_id
+      AND "estadoUsuario" = true
+      LIMIT 1;
+      
+      -- Si no existe el usuario, retornar false
+      IF id_usuario IS NULL THEN
+        RETURN false;
+      END IF;
+      
+      -- Verificar si tiene el rol ADMINISTRADOR
+      PERFORM set_config('row_security', 'off', true);
+      
+      SELECT EXISTS(
+        SELECT 1
+        FROM "USUARIOROL" ur
+        INNER JOIN "ROL" r ON ur."idRol" = r."idRol"
+        WHERE ur."idUsuario" = id_usuario
+        AND ur."estadoUsuarioRol" = true
+        AND r."estadoRol" = true
+        AND r."nombreRol" = 'ADMINISTRADOR'
+      ) INTO es_admin;
+      
+      PERFORM set_config('row_security', 'on', true);
+      
+      RETURN es_admin;
+    END;
+    $$;
+  END IF;
+END $$;
+
+-- =====================================================
+-- ELIMINAR POLÍTICAS EXISTENTES (si existen)
+-- =====================================================
+DROP POLICY IF EXISTS "Superadmins pueden ver todas las categorías" ON "CATEGORIA";
+DROP POLICY IF EXISTS "Superadmins pueden crear categorías" ON "CATEGORIA";
+DROP POLICY IF EXISTS "Superadmins pueden actualizar categorías" ON "CATEGORIA";
+DROP POLICY IF EXISTS "Superadmins pueden eliminar categorías" ON "CATEGORIA";
+
+DROP POLICY IF EXISTS "Admins pueden ver categorías de su organización" ON "CATEGORIA";
+DROP POLICY IF EXISTS "Admins pueden crear categorías de su organización" ON "CATEGORIA";
+DROP POLICY IF EXISTS "Admins pueden actualizar categorías de su organización" ON "CATEGORIA";
+DROP POLICY IF EXISTS "Admins pueden eliminar categorías de su organización" ON "CATEGORIA";
+
+-- =====================================================
+-- HABILITAR RLS EN LA TABLA CATEGORIA
+-- =====================================================
+ALTER TABLE "CATEGORIA" ENABLE ROW LEVEL SECURITY;
+
+-- =====================================================
+-- POLÍTICA 1: Superadmins pueden ver todas las categorías
+-- =====================================================
+CREATE POLICY "Superadmins pueden ver todas las categorías"
+ON "CATEGORIA"
+FOR SELECT
+TO authenticated
+USING (
+  is_superadmin(auth.uid())
+);
+
+-- =====================================================
+-- POLÍTICA 2: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden ver categorías
+-- =====================================================
+CREATE POLICY "Admins pueden ver categorías de su organización"
+ON "CATEGORIA"
+FOR SELECT
+TO authenticated
+USING (
+  (
+    "idOrganizacion" = get_user_organizacion_id(auth.uid())
+    AND is_admin_organizacion(auth.uid())
+    AND "estadoCategoria" = true
+  )
+  OR is_superadmin(auth.uid())
+);
+
+-- =====================================================
+-- POLÍTICA 3: Superadmins pueden crear categorías
+-- =====================================================
+CREATE POLICY "Superadmins pueden crear categorías"
+ON "CATEGORIA"
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  is_superadmin(auth.uid())
+);
+
+-- =====================================================
+-- POLÍTICA 4: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden crear categorías
+-- =====================================================
+CREATE POLICY "Admins pueden crear categorías de su organización"
+ON "CATEGORIA"
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  (
+    "idOrganizacion" = get_user_organizacion_id(auth.uid())
+    AND is_admin_organizacion(auth.uid())
+  )
+  OR is_superadmin(auth.uid())
+);
+
+-- =====================================================
+-- POLÍTICA 5: Superadmins pueden actualizar categorías
+-- =====================================================
+CREATE POLICY "Superadmins pueden actualizar categorías"
+ON "CATEGORIA"
+FOR UPDATE
+TO authenticated
+USING (
+  is_superadmin(auth.uid())
+)
+WITH CHECK (
+  is_superadmin(auth.uid())
+);
+
+-- =====================================================
+-- POLÍTICA 6: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden actualizar categorías
+-- =====================================================
+CREATE POLICY "Admins pueden actualizar categorías de su organización"
+ON "CATEGORIA"
+FOR UPDATE
+TO authenticated
+USING (
+  (
+    "idOrganizacion" = get_user_organizacion_id(auth.uid())
+    AND is_admin_organizacion(auth.uid())
+  )
+  OR is_superadmin(auth.uid())
+)
+WITH CHECK (
+  (
+    "idOrganizacion" = get_user_organizacion_id(auth.uid())
+    AND is_admin_organizacion(auth.uid())
+  )
+  OR is_superadmin(auth.uid())
+);
+
+-- =====================================================
+-- POLÍTICA 7: Solo ADMINISTRADOR de la organización (y SUPERADMIN) pueden eliminar categorías (soft delete)
+-- =====================================================
+-- Nota: La eliminación es "soft delete" (cambia estadoCategoria a false)
+-- Por lo tanto, se usa la política de UPDATE
+
+-- =====================================================
+-- VERIFICACIÓN
+-- =====================================================
+-- Verificar que las políticas se crearon correctamente
+SELECT 
+  schemaname,
+  tablename,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies
+WHERE tablename = 'CATEGORIA'
+ORDER BY policyname;
+
+-- =====================================================
+-- NOTAS
+-- =====================================================
+-- 1. Los superadmins tienen acceso completo (CRUD) sobre CATEGORIA
+-- 2. Solo el rol ADMINISTRADOR (de la organización) puede ver/crear/actualizar/eliminar categorías de su organización
+-- 3. Los usuarios normales NO pueden acceder a las categorías
+-- 4. La eliminación lógica (soft delete) se implementa marcando estadoCategoria = false vía UPDATE
+-- 5. La función is_superadmin usa SECURITY DEFINER para evitar recursión infinita
+-- 6. La función is_admin_organizacion verifica si el usuario tiene el rol ADMINISTRADOR
+-- 7. La función get_user_organizacion_id obtiene el UUID de la organización del usuario
+

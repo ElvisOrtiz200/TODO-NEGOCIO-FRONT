@@ -7,15 +7,19 @@ import {
   getCompraById,
   createCompraDetalle,
 } from "../services/compraService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useCompras = () => {
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [compras, setCompras] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadCompras = async () => {
     try {
       setLoading(true);
-      const data = await getCompras();
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
+      const data = await getCompras(idOrganizacion);
       setCompras(data);
     } catch (err) {
       console.error("Error al cargar compras:", err.message);
@@ -58,7 +62,7 @@ export const useCompras = () => {
 
   useEffect(() => {
     loadCompras();
-  }, []);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return {
     compras,

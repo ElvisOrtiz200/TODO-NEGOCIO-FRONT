@@ -3,14 +3,22 @@ import { supabase } from "../../../api/supabaseClient";
 const TABLE = "COMPRA";
 const TABLE_DETALLE = "COMPRA_DETALLE";
 
-export const getCompras = async () => {
-  const { data, error } = await supabase
+export const getCompras = async (idOrganizacion = null) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const orgId = idOrganizacion ? String(idOrganizacion) : null;
+  let query = supabase
     .from(TABLE)
     .select(`
       *,
       proveedor:PROVEEDOR(*)
-    `)
-    .order("fechaCompra", { ascending: false });
+    `);
+  
+  // Filtrar por organización si se proporciona
+  if (orgId) {
+    query = query.eq("idOrganizacion", orgId);
+  }
+  
+  const { data, error } = await query.order("fechaCompra", { ascending: false });
   if (error) throw error;
   return data;
 };

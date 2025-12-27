@@ -4,12 +4,14 @@ import { useClientes } from "../hooks/useClientes";
 import ClienteForm from "../components/ClienteForm";
 import { useToast } from "../../../components/ToastContainer";
 import { usePermissions } from "../../../hooks/usePermissions";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 import PermisoGuard from "../../../components/PermisoGuard";
 
 export default function ClientesPage() {
   const { clientes, loading, addCliente, editCliente, removeCliente, loadClientes } = useClientes();
   const { success, error: showError, warning } = useToast();
   const { isSuperAdmin, tienePermiso, loading: permissionsLoading } = usePermissions();
+  const { organizacionVista } = useOrganizacion();
   const [showForm, setShowForm] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   
@@ -17,7 +19,6 @@ export default function ClientesPage() {
   const [filtroNombre, setFiltroNombre] = useState("");
   const [filtroEmail, setFiltroEmail] = useState("");
   const [filtroTelefono, setFiltroTelefono] = useState("");
-  const [filtroDocumento, setFiltroDocumento] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
 
   // Determinar permisos
@@ -63,26 +64,23 @@ export default function ClientesPage() {
         cliente.emailCliente?.toLowerCase().includes(filtroEmail.toLowerCase());
       const coincideTelefono = filtroTelefono === "" || 
         cliente.telefonoCliente?.includes(filtroTelefono);
-      const coincideDocumento = filtroDocumento === "" || 
-        cliente.documentoCliente?.includes(filtroDocumento);
       const coincideEstado = filtroEstado === "todos" || 
         (filtroEstado === "activo" && cliente.estadoCliente) ||
         (filtroEstado === "inactivo" && !cliente.estadoCliente);
       
-      return coincideNombre && coincideEmail && coincideTelefono && coincideDocumento && coincideEstado;
+      return coincideNombre && coincideEmail && coincideTelefono && coincideEstado;
     });
-  }, [clientes, filtroNombre, filtroEmail, filtroTelefono, filtroDocumento, filtroEstado]);
+  }, [clientes, filtroNombre, filtroEmail, filtroTelefono, filtroEstado]);
 
   const limpiarFiltros = () => {
     setFiltroNombre("");
     setFiltroEmail("");
     setFiltroTelefono("");
-    setFiltroDocumento("");
     setFiltroEstado("todos");
   };
 
   const tieneFiltrosActivos = filtroNombre !== "" || filtroEmail !== "" || filtroTelefono !== "" || 
-    filtroDocumento !== "" || filtroEstado !== "todos";
+    filtroEstado !== "todos";
 
   if (permissionsLoading) {
     return (
@@ -112,10 +110,14 @@ export default function ClientesPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#2B3E3C]">Gestión de Clientes</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra la información de tus clientes
+            {organizacionVista ? (
+              <span>Viendo organización: {organizacionVista.nombreOrganizacion} (Solo lectura)</span>
+            ) : (
+              <span>Administra la información de tus clientes</span>
+            )}
           </p>
         </div>
-        {!showForm && puedeCrear && (
+        {!showForm && puedeCrear && !organizacionVista && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -128,8 +130,8 @@ export default function ClientesPage() {
         )}
       </div>
 
-      {/* FORMULARIO */}
-      {showForm && puedeCrear ? (
+      {/* FORMULARIO - Solo si NO está viendo una organización */}
+      {showForm && puedeCrear && !organizacionVista ? (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             {selectedCliente ? "Editar Cliente" : "Nuevo Cliente"}
@@ -202,20 +204,6 @@ export default function ClientesPage() {
                 />
               </div>
 
-              {/* Filtro por Documento */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  🆔 Documento
-                </label>
-                <input
-                  type="text"
-                  value={filtroDocumento}
-                  onChange={(e) => setFiltroDocumento(e.target.value)}
-                  placeholder="DNI, RUC, etc..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-                />
-              </div>
-
               {/* Filtro por Estado */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -265,25 +253,23 @@ export default function ClientesPage() {
                     <tr>
                       <th className="p-3 text-left">ID</th>
                       <th className="p-3 text-left">Nombre Completo</th>
-                      <th className="p-3 text-left">Documento</th>
                       <th className="p-3 text-left">Email</th>
                       <th className="p-3 text-left">Teléfono</th>
-                      <th className="p-3 text-left">Dirección</th>
                       <th className="p-3 text-left">Estado</th>
-                      <th className="p-3 text-center">Acciones</th>
+                      {!organizacionVista && (
+                        <th className="p-3 text-center">Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {clientesFiltrados.map((cliente) => (
-                      <tr key={cliente.idCliente} className="border-b hover:bg-gray-50 transition-colors">
+                      <tr key={cliente.idUsuario || cliente.idCliente} className="border-b hover:bg-gray-50 transition-colors">
                         <td className="p-3">{cliente.idCliente}</td>
                         <td className="p-3 font-medium">
                           {cliente.nombreCliente} {cliente.apellidoCliente || ""}
                         </td>
-                        <td className="p-3">{cliente.documentoCliente || "-"}</td>
                         <td className="p-3">{cliente.emailCliente || "-"}</td>
                         <td className="p-3">{cliente.telefonoCliente || "-"}</td>
-                        <td className="p-3">{cliente.direccionCliente || "-"}</td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -295,40 +281,42 @@ export default function ClientesPage() {
                             {cliente.estadoCliente ? "Activo" : "Inactivo"}
                           </span>
                         </td>
-                        <td className="p-3 text-center space-x-3">
-                          {puedeEditar && (
-                            <button
-                              onClick={() => {
-                                setSelectedCliente(cliente);
-                                setShowForm(true);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                            >
-                              Editar
-                            </button>
-                          )}
-                          {puedeEliminar && (
-                            <button
-                              onClick={async () => {
-                                if (window.confirm(`¿Estás seguro de eliminar el cliente "${cliente.nombreCliente} ${cliente.apellidoCliente || ""}"?`)) {
-                                  try {
-                                    await removeCliente(cliente.idCliente);
-                                    await loadClientes();
-                                    success("Cliente eliminado exitosamente");
-                                  } catch (error) {
-                                    showError("Error al eliminar el cliente");
+                        {!organizacionVista && (
+                          <td className="p-3 text-center space-x-3">
+                            {puedeEditar && (
+                              <button
+                                onClick={() => {
+                                  setSelectedCliente(cliente);
+                                  setShowForm(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {puedeEliminar && (
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(`¿Estás seguro de eliminar el cliente "${cliente.nombreCliente} ${cliente.apellidoCliente || ""}"?`)) {
+                                    try {
+                                      await removeCliente(cliente.idCliente);
+                                      await loadClientes();
+                                      success("Cliente eliminado exitosamente");
+                                    } catch (error) {
+                                      showError("Error al eliminar el cliente");
+                                    }
                                   }
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
-                            >
-                              Eliminar
-                            </button>
-                          )}
-                          {!puedeEditar && !puedeEliminar && (
-                            <span className="text-gray-400 text-sm">Solo lectura</span>
-                          )}
-                        </td>
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                            {!puedeEditar && !puedeEliminar && (
+                              <span className="text-gray-400 text-sm">Solo lectura</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

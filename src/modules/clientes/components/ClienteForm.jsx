@@ -7,8 +7,6 @@ export default function ClienteForm({ initialData, onSubmit, onCancel }) {
   const [apellidoCliente, setApellidoCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [emailCliente, setEmailCliente] = useState("");
-  const [direccionCliente, setDireccionCliente] = useState("");
-  const [documentoCliente, setDocumentoCliente] = useState("");
 
   useEffect(() => {
     if (initialData) {
@@ -16,16 +14,12 @@ export default function ClienteForm({ initialData, onSubmit, onCancel }) {
       setApellidoCliente(initialData.apellidoCliente || "");
       setTelefonoCliente(initialData.telefonoCliente || "");
       setEmailCliente(initialData.emailCliente || "");
-      setDireccionCliente(initialData.direccionCliente || "");
-      setDocumentoCliente(initialData.documentoCliente || "");
     } else {
       // Resetear campos si no hay datos iniciales
       setNombreCliente("");
       setApellidoCliente("");
       setTelefonoCliente("");
       setEmailCliente("");
-      setDireccionCliente("");
-      setDocumentoCliente("");
     }
   }, [initialData]);
 
@@ -43,8 +37,6 @@ export default function ClienteForm({ initialData, onSubmit, onCancel }) {
       apellidoCliente: apellidoCliente.trim() || null,
       telefonoCliente: telefonoCliente.trim() || null,
       emailCliente: emailCliente.trim() || null,
-      direccionCliente: direccionCliente.trim() || null,
-      documentoCliente: documentoCliente.trim() || null,
       estadoCliente: true,
     };
     
@@ -89,19 +81,6 @@ export default function ClienteForm({ initialData, onSubmit, onCancel }) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Documento
-          </label>
-          <input
-            type="text"
-            value={documentoCliente}
-            onChange={(e) => setDocumentoCliente(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-            placeholder="DNI, RUC, etc."
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
             Teléfono
           </label>
           <input
@@ -123,19 +102,6 @@ export default function ClienteForm({ initialData, onSubmit, onCancel }) {
             onChange={(e) => setEmailCliente(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
             placeholder="cliente@ejemplo.com"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Dirección
-          </label>
-          <textarea
-            value={direccionCliente}
-            onChange={(e) => setDireccionCliente(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
-            placeholder="Dirección completa del cliente"
           />
         </div>
       </div>

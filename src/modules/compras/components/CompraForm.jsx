@@ -91,7 +91,7 @@ export default function CompraForm({ initialData, onSubmit, onCancel }) {
             <option value="">Seleccione un proveedor</option>
             {proveedores?.map((proveedor) => (
               <option key={proveedor.idProveedor} value={proveedor.idProveedor}>
-                {proveedor.nombreProveedor}
+                {proveedor.nombreComercial || proveedor.nombre || `Proveedor ${proveedor.idProveedor}`}
               </option>
             ))}
           </select>

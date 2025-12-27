@@ -26,6 +26,8 @@ export const OrganizacionProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Estado para cuando el superadmin está viendo una organización específica
+  const [organizacionVista, setOrganizacionVista] = useState(null);
   const hasInitialized = useRef(false);
   const authListenerRef = useRef(null);
 
@@ -97,6 +99,38 @@ export const OrganizacionProvider = ({ children }) => {
     await cargarOrganizacion();
   };
 
+  // Función para que el superadmin entre a ver una organización específica
+  const entrarAOrganizacion = (organizacion) => {
+    setOrganizacionVista(organizacion);
+    // Guardar en localStorage para persistir al recargar
+    if (organizacion) {
+      localStorage.setItem('organizacionVista', JSON.stringify(organizacion));
+    }
+  };
+
+  // Función para salir de la vista de organización
+  const salirDeOrganizacion = () => {
+    setOrganizacionVista(null);
+    localStorage.removeItem('organizacionVista');
+  };
+
+  // Cargar organización vista desde localStorage al iniciar
+  useEffect(() => {
+    const orgVistaGuardada = localStorage.getItem('organizacionVista');
+    if (orgVistaGuardada) {
+      try {
+        const org = JSON.parse(orgVistaGuardada);
+        setOrganizacionVista(org);
+      } catch (e) {
+        console.error('Error cargando organización vista:', e);
+        localStorage.removeItem('organizacionVista');
+      }
+    }
+  }, []);
+
+  // Determinar qué organización mostrar: si hay organizacionVista, usar esa; sino, la del usuario
+  const organizacionActiva = organizacionVista || organizacion;
+
   useEffect(() => {
     // Evitar inicialización múltiple
     if (hasInitialized.current) return;
@@ -126,10 +160,12 @@ export const OrganizacionProvider = ({ children }) => {
           } else {
             setOrganizacion(null);
             setUsuario(null);
+            setOrganizacionVista(null); // Limpiar organización vista al cerrar sesión
             orgCache.userId = null;
             orgCache.organizacion = null;
             orgCache.usuario = null;
             orgCache.timestamp = null;
+            localStorage.removeItem('organizacionVista'); // Limpiar del localStorage
             setLoading(false);
           }
         }
@@ -148,12 +184,16 @@ export const OrganizacionProvider = ({ children }) => {
   return (
     <OrganizacionContext.Provider
       value={{
-        organizacion,
+        organizacion: organizacionActiva, // Usar organizacionActiva en lugar de organizacion
+        organizacionOriginal: organizacion, // Mantener la original para referencia
+        organizacionVista, // La organización que el superadmin está viendo
         usuario,
         loading,
         error,
         actualizarOrganizacion,
         cargarOrganizacion,
+        entrarAOrganizacion,
+        salirDeOrganizacion,
       }}
     >
       {children}

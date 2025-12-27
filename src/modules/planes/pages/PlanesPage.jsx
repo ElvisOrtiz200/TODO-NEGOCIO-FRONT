@@ -1,14 +1,24 @@
 import { useState, useMemo } from "react";
-import { usePlanes } from "../hooks/usePlanes";
+import { usePlanes, useOrganizacionPlanes } from "../hooks/usePlanes";
 import PlanForm from "../components/PlanForm";
+import AsignarPlanOrganizacionModal from "../components/AsignarPlanOrganizacionModal";
+import HistorialPlanModal from "../components/HistorialPlanModal";
+import { useOrganizaciones } from "../../organizaciones/hooks/useOrganizaciones";
 import SuperAdminRoute from "../../../components/SuperAdminRoute";
 import { useToast } from "../../../components/ToastContainer";
+import * as planService from "../services/planService";
 
 function PlanesPageContent() {
-  const { planes, loading, error, addPlan, editPlan, removePlan, reloadPlanes } = usePlanes();
+  const { planes, loading, error, addPlan, editPlan, removePlan, reloadPlanes } = usePlanes(false);
+  const { organizaciones } = useOrganizaciones();
+  const { organizacionPlanes, loading: loadingOrganizacionPlanes, reloadPlanes: reloadOrganizacionPlanes } = useOrganizacionPlanes();
   const { success, error: showError } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [activeTab, setActiveTab] = useState("planes");
+  const [showAsignarPlan, setShowAsignarPlan] = useState(false);
+  const [showHistorial, setShowHistorial] = useState(false);
+  const [organizacionSeleccionada, setOrganizacionSeleccionada] = useState(null);
   
   // Estados para filtros
   const [filtroNombre, setFiltroNombre] = useState("");
@@ -19,30 +29,57 @@ function PlanesPageContent() {
 
   const handleSubmit = async (plan) => {
     try {
+      let planId = selectedPlan?.idPlan;
+      
       if (selectedPlan) {
         const resultado = await editPlan(selectedPlan.idPlan, plan);
         if (resultado.success) {
+          planId = resultado.data.idPlan;
           await reloadPlanes();
           setShowForm(false);
           setSelectedPlan(null);
           success("Plan actualizado exitosamente");
         } else {
           showError(resultado.error || "Error al actualizar el plan");
+          return;
         }
       } else {
         const resultado = await addPlan(plan);
         if (resultado.success) {
+          planId = resultado.data.idPlan;
           await reloadPlanes();
           setShowForm(false);
           setSelectedPlan(null);
           success("Plan creado exitosamente");
         } else {
           showError(resultado.error || "Error al crear el plan");
+          return;
+        }
+      }
+
+      // Guardar límites si se proporcionaron
+      if (plan.limits) {
+        try {
+          await planService.upsertPlanLimits(planId, plan.limits);
+        } catch (err) {
+          console.error("Error guardando límites:", err);
+          showError("Plan guardado pero hubo un error al guardar los límites");
         }
       }
     } catch (error) {
       console.error("Error al guardar el plan:", error);
       showError("Error al guardar el plan. Por favor, verifica los datos.");
+    }
+  };
+
+  const handleSaveLimits = async (planId, limits) => {
+    try {
+      await planService.upsertPlanLimits(planId, limits);
+      success("Límites guardados exitosamente");
+    } catch (err) {
+      console.error("Error guardando límites:", err);
+      showError(err.message || "Error al guardar los límites");
+      throw err;
     }
   };
 
@@ -87,10 +124,10 @@ function PlanesPageContent() {
             Gestión de Planes
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Administra los planes de suscripción disponibles
+            Administra los planes de suscripción y su asignación a organizaciones
           </p>
         </div>
-        {!showForm && (
+        {!showForm && activeTab === "planes" && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -103,14 +140,43 @@ function PlanesPageContent() {
         )}
       </div>
 
+      {/* TABS */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab("planes")}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "planes"
+                ? "border-[#2B3E3C] text-[#2B3E3C]"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            Planes
+          </button>
+          <button
+            onClick={() => setActiveTab("organizaciones")}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "organizaciones"
+                ? "border-[#2B3E3C] text-[#2B3E3C]"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            Planes de Organizaciones
+          </button>
+        </nav>
+      </div>
+
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      {/* FORMULARIO */}
-      {showForm ? (
+      {/* CONTENIDO POR TAB */}
+      {activeTab === "planes" && (
+        <>
+          {/* FORMULARIO */}
+          {showForm ? (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             {selectedPlan ? "Editar Plan" : "Nuevo Plan"}
@@ -118,6 +184,7 @@ function PlanesPageContent() {
           <PlanForm
             initialData={selectedPlan}
             onSubmit={handleSubmit}
+            onSaveLimits={handleSaveLimits}
             onCancel={() => {
               setShowForm(false);
               setSelectedPlan(null);
@@ -310,6 +377,130 @@ function PlanesPageContent() {
           )}
           </div>
         </>
+      )}
+        </>
+      )}
+
+      {activeTab === "organizaciones" && (
+        <div className="bg-white rounded-xl shadow overflow-hidden">
+          {loadingOrganizacionPlanes ? (
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#2B3E3C]"></div>
+              <p className="mt-4 text-gray-500">Cargando planes de organizaciones...</p>
+            </div>
+          ) : organizacionPlanes.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No hay planes asignados a organizaciones
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#2B3E3C] text-white">
+                  <tr>
+                    <th className="p-3 text-left">Organización</th>
+                    <th className="p-3 text-left">Plan</th>
+                    <th className="p-3 text-left">Período</th>
+                    <th className="p-3 text-left">Fecha Inicio</th>
+                    <th className="p-3 text-left">Fecha Fin</th>
+                    <th className="p-3 text-left">Precio</th>
+                    <th className="p-3 text-left">Estado</th>
+                    <th className="p-3 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizacionPlanes.map((op) => (
+                    <tr key={op.idOrganizacionPlan} className="border-b hover:bg-gray-50 transition-colors">
+                      <td className="p-3 font-medium">
+                        {op.organizacion?.nombreOrganizacion || op.organizacionId}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+                          {op.plan?.nombrePlan || "Sin plan"}
+                        </span>
+                      </td>
+                      <td className="p-3">{op.periodo || "-"}</td>
+                      <td className="p-3 text-sm">
+                        {op.fechaInicio ? new Date(op.fechaInicio).toLocaleDateString("es-ES") : "-"}
+                      </td>
+                      <td className="p-3 text-sm">
+                        {op.fechaFin ? new Date(op.fechaFin).toLocaleDateString("es-ES") : "-"}
+                      </td>
+                      <td className="p-3">
+                        <span className="font-semibold text-green-600">
+                          ${parseFloat(op.precioContratado || 0).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            op.estado === "activo"
+                              ? "bg-green-100 text-green-700"
+                              : op.estado === "cancelado"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {op.estado || "inactivo"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center space-x-2">
+                        <button
+                          onClick={() => {
+                            const org = organizaciones.find(o => o.idOrganizacion === op.organizacionId);
+                            if (org) {
+                              setOrganizacionSeleccionada(org);
+                              setShowHistorial(true);
+                            }
+                          }}
+                          className="text-purple-600 hover:text-purple-800 hover:underline text-sm font-medium"
+                        >
+                          Historial
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          <div className="p-4 border-t">
+            <button
+              onClick={() => {
+                setShowAsignarPlan(true);
+                setOrganizacionSeleccionada(null);
+              }}
+              className="bg-[#2B3E3C] text-white px-4 py-2 rounded-lg hover:bg-[#22312f] transition-colors"
+            >
+              + Asignar Plan a Organización
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ASIGNAR PLAN */}
+      {showAsignarPlan && (
+        <AsignarPlanOrganizacionModal
+          organizacion={organizacionSeleccionada}
+          onClose={() => {
+            setShowAsignarPlan(false);
+            setOrganizacionSeleccionada(null);
+          }}
+          onSuccess={() => {
+            reloadOrganizacionPlanes();
+          }}
+        />
+      )}
+
+      {/* MODAL HISTORIAL */}
+      {showHistorial && organizacionSeleccionada && (
+        <HistorialPlanModal
+          organizacion={organizacionSeleccionada}
+          onClose={() => {
+            setShowHistorial(false);
+            setOrganizacionSeleccionada(null);
+          }}
+        />
       )}
     </div>
   );

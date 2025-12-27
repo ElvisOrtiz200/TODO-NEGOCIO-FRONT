@@ -2,12 +2,20 @@ import { supabase } from "../../../api/supabaseClient";
 
 const TABLE = "ALMACEN";
 
-export const getAlmacenes = async () => {
-  const { data, error } = await supabase
+export const getAlmacenes = async (idOrganizacion = null, includeOrganizacion = false) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const orgId = idOrganizacion ? String(idOrganizacion) : null;
+  let query = supabase
     .from(TABLE)
-    .select("*")
-    .eq("estadoAlmacen", true)
-    .order("idAlmacen", { ascending: true });
+    .select(includeOrganizacion ? `*, organizacion:ORGANIZACION(nombreOrganizacion, idOrganizacion)` : "*")
+    .eq("estadoAlmacen", true);
+  
+  // Filtrar por organización si se proporciona
+  if (orgId) {
+    query = query.eq("idOrganizacion", orgId);
+  }
+  
+  const { data, error } = await query.order("idAlmacen", { ascending: true });
   if (error) throw error;
   return data;
 };

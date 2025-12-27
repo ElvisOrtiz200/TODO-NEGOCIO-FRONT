@@ -2,12 +2,24 @@ import { supabase } from "../../../api/supabaseClient";
 
 const TABLE = "CATEGORIA";
 
-export const getCategorias = async () => {
-  const { data, error } = await supabase
+export const getCategorias = async (idOrganizacion = null, incluirInactivas = false) => {
+  // Asegurar que idOrganizacion sea string para comparaciones UUID
+  const orgId = idOrganizacion ? String(idOrganizacion) : null;
+  let query = supabase
     .from(TABLE)
-    .select("*")
-    .eq("estadoCategoria", true)
-    .order("idCategoria", { ascending: true });
+    .select("*");
+  
+  // Filtrar por estado solo si no se incluyen inactivas
+  if (!incluirInactivas) {
+    query = query.eq("estadoCategoria", true);
+  }
+  
+  // Filtrar por organización si se proporciona
+  if (orgId) {
+    query = query.eq("idOrganizacion", orgId);
+  }
+  
+  const { data, error } = await query.order("idCategoria", { ascending: true });
   if (error) throw error;
   return data;
 };

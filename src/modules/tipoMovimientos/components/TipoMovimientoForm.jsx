@@ -18,7 +18,7 @@ export default function TipoMovimientoForm({ initialData, onSubmit, onCancel }) 
       descripcionMovimiento,
       naturaleza,
       fechaRegistroMovimiento: new Date().toISOString(),
-      estadoMovimiento: true,
+      estadoTipoMovimiento: true,
     };
 
     onSubmit(nuevoTipoMovimiento);

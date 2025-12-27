@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../api/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { useOrganizacion } from "../context/OrganizacionContext";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function Navbar({ onMenuClick }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const { organizacionVista, salirDeOrganizacion } = useOrganizacion();
+  const { isSuperAdmin } = usePermissions();
 
   useEffect(() => {
     // Obtener usuario actual
@@ -27,6 +31,11 @@ export default function Navbar({ onMenuClick }) {
     navigate("/login");
   };
 
+  const handleSalirOrganizacion = () => {
+    salirDeOrganizacion();
+    navigate("/home/organizaciones");
+  };
+
   return (
     <header className="flex items-center justify-between bg-white shadow-md px-3 md:px-6 py-3 border-b border-gray-200">
       <div className="flex items-center gap-3 md:gap-0">
@@ -41,12 +50,34 @@ export default function Navbar({ onMenuClick }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-base md:text-lg font-semibold text-gray-800">Panel de Control</h1>
           {user && (
             <p className="text-xs text-gray-500 mt-0.5 hidden md:block">
               {user.email}
             </p>
+          )}
+          {/* Indicador de organización activa para superadmin */}
+          {isSuperAdmin && organizacionVista && (
+            <div className="mt-1 flex items-center gap-2">
+              <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span className="hidden sm:inline">Viendo: {organizacionVista.nombreOrganizacion}</span>
+                <span className="sm:hidden">Viendo: {organizacionVista.nombreOrganizacion.substring(0, 15)}...</span>
+              </div>
+              <button
+                onClick={handleSalirOrganizacion}
+                className="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium hover:bg-red-200 transition-colors flex items-center gap-1"
+                title="Salir de esta organización"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

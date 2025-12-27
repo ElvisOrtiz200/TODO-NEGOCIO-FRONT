@@ -5,15 +5,19 @@ import {
   updateCliente,
   deleteCliente,
 } from "../services/clienteService";
+import { useOrganizacion } from "../../../context/OrganizacionContext";
 
 export const useClientes = () => {
+  const { organizacion, organizacionVista } = useOrganizacion();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadClientes = async () => {
     try {
       setLoading(true);
-      const data = await getClientes();
+      const orgActiva = organizacionVista || organizacion;
+      const idOrganizacion = orgActiva?.idOrganizacion || null;
+      const data = await getClientes(idOrganizacion);
       setClientes(data);
     } catch (err) {
       console.error("Error al cargar clientes:", err.message);
@@ -24,6 +28,11 @@ export const useClientes = () => {
 
   const addCliente = async (cliente) => {
     try {
+      // Agregar idOrganizacion si no está presente
+      const orgActiva = organizacionVista || organizacion;
+      if (!cliente.idOrganizacion && orgActiva?.idOrganizacion) {
+        cliente.idOrganizacion = orgActiva.idOrganizacion;
+      }
       console.log("📝 Creando cliente con datos:", cliente);
       const nuevo = await createCliente(cliente);
       console.log("✅ Cliente creado exitosamente:", nuevo);
@@ -38,6 +47,11 @@ export const useClientes = () => {
 
   const editCliente = async (idCliente, cliente) => {
     try {
+      // Asegurar que idOrganizacion esté presente para validaciones
+      const orgActiva = organizacionVista || organizacion;
+      if (!cliente.idOrganizacion && orgActiva?.idOrganizacion) {
+        cliente.idOrganizacion = orgActiva.idOrganizacion;
+      }
       console.log("✏️ Actualizando cliente:", idCliente, cliente);
       const actualizado = await updateCliente(idCliente, cliente);
       console.log("✅ Cliente actualizado exitosamente:", actualizado);
@@ -64,7 +78,7 @@ export const useClientes = () => {
 
   useEffect(() => {
     loadClientes();
-  }, []);
+  }, [organizacion?.idOrganizacion, organizacionVista?.idOrganizacion]);
 
   return { clientes, loading, addCliente, editCliente, removeCliente, loadClientes };
 };

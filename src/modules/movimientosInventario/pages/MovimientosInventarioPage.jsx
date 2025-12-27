@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMovimientosInventario } from "../hooks/useMovimientosInventario";
 import MovimientoInventarioForm from "../components/MovimientoInventarioForm";
 import { useInventario } from "../../inventario/hooks/useInventario";
+import { useTipoMovimientos } from "../../tipoMovimientos/hooks/useTipoMovimientos";
 
 export default function MovimientosInventarioPage() {
-  const { movimientos, loading, addMovimiento, loadMovimientos } = useMovimientosInventario();
+  const { movimientos, loading, addMovimiento, loadMovimientos, filterMovimientosByTipo } = useMovimientosInventario();
+  const { tipoMovimientos } = useTipoMovimientos();
   const { loadInventario } = useInventario();
   const [showForm, setShowForm] = useState(false);
   const [selectedMovimiento, setSelectedMovimiento] = useState(null);
+  const [filtroTipoMovimiento, setFiltroTipoMovimiento] = useState("");
 
   const handleSubmit = async (movimiento) => {
     try {
@@ -21,6 +24,18 @@ export default function MovimientosInventarioPage() {
       console.error("Error al guardar el movimiento:", error);
       alert("Error al registrar el movimiento. Verifique que el stock sea suficiente para salidas.");
     }
+  };
+
+  // Filtrar movimientos según el tipo seleccionado
+  const movimientosFiltrados = useMemo(() => {
+    if (!filtroTipoMovimiento || filtroTipoMovimiento === "") {
+      return movimientos;
+    }
+    return filterMovimientosByTipo(filtroTipoMovimiento);
+  }, [movimientos, filtroTipoMovimiento, filterMovimientosByTipo]);
+
+  const handleLimpiarFiltro = () => {
+    setFiltroTipoMovimiento("");
   };
 
   return (
@@ -58,10 +73,57 @@ export default function MovimientosInventarioPage() {
       ) : (
         /* TABLA DE MOVIMIENTOS */
         <div className="bg-white rounded-xl shadow overflow-hidden">
+          {/* FILTRO POR TIPO DE MOVIMIENTO */}
+          <div className="p-4 border-b bg-gray-50">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex-1 w-full sm:w-auto">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filtrar por Tipo de Movimiento
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={filtroTipoMovimiento}
+                    onChange={(e) => setFiltroTipoMovimiento(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2B3E3C] focus:border-transparent"
+                  >
+                    <option value="">Todos los tipos</option>
+                    {tipoMovimientos
+                      ?.filter((tm) => tm.estadoTipoMovimiento)
+                      .map((tipo) => (
+                        <option
+                          key={tipo.idTipoMovimiento}
+                          value={tipo.idTipoMovimiento}
+                        >
+                          {tipo.descripcionMovimiento} ({tipo.naturaleza})
+                        </option>
+                      ))}
+                  </select>
+                  {filtroTipoMovimiento && (
+                    <button
+                      onClick={handleLimpiarFiltro}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              </div>
+              {filtroTipoMovimiento && (
+                <div className="text-sm text-gray-600">
+                  Mostrando {movimientosFiltrados.length} de {movimientos.length} movimientos
+                </div>
+              )}
+            </div>
+          </div>
+
           {loading ? (
             <p className="p-4 text-gray-500">Cargando movimientos...</p>
-          ) : movimientos.length === 0 ? (
-            <p className="p-4 text-gray-500">No hay movimientos registrados.</p>
+          ) : movimientosFiltrados.length === 0 ? (
+            <p className="p-4 text-gray-500">
+              {filtroTipoMovimiento
+                ? "No hay movimientos para el tipo seleccionado."
+                : "No hay movimientos registrados."}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -79,7 +141,7 @@ export default function MovimientosInventarioPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {movimientos.map((mov) => (
+                  {movimientosFiltrados.map((mov) => (
                     <tr key={mov.idMovimientoInventario} className="border-b hover:bg-gray-50">
                       <td className="p-2">{mov.idMovimientoInventario}</td>
                       <td className="p-2">

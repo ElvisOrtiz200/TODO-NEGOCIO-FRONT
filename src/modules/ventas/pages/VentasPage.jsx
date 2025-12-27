@@ -137,7 +137,7 @@ export default function VentasPage() {
 
       {/* MODAL DE DETALLES */}
       {selectedVenta && !showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-6 max-w-2xl w-full mx-4">
             <h2 className="text-xl font-semibold mb-4">Detalles de Venta #{selectedVenta.idVenta}</h2>
             {/* Aquí mostrarías los detalles de la venta */}
